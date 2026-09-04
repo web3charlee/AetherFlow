@@ -1,0 +1,19 @@
+{
+  "name": "aetherflow-scheduler-backend",
+  "version": "1.0.0",
+  "description": "Runs recurring/scheduled Aether Flow transfers unattended on ITL Testnet",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.4",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether Flow — Live Testnet Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#08060f;
+    --violet:#8b5cf6;
+    --violet-bright:#a78bfa;
+    --violet-soft:#c4b5fd;
+    --violet-deep:#4c1d95;
+    --glass:rgba(255,255,255,0.035);
+    --glass-border:rgba(167,139,250,0.22);
+    --glass-border-hi:rgba(196,181,253,0.55);
+    --ink:#f3f1fb;
+    --ink-dim:#a79fc2;
+    --ink-faint:#635c7c;
+    --green:#4ade80;
+    --red:#f2755a;
+    --amber:#f2b84b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(900px 500px at 10% -8%, #2a1a5c55 0%, transparent 60%),
+      radial-gradient(1000px 600px at 105% 10%, #3b1f6e4d 0%, transparent 55%),
+      radial-gradient(700px 500px at 50% 115%, #24124d40 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:36px 20px 60px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* ---------- header / logo ---------- */
+  header{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:8px;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .logo-mark{width:40px;height:40px;flex:none;}
+  .brand-text{display:flex;flex-direction:column;line-height:1;}
+  .brand-text .word{font-family:'Space Grotesk',sans-serif;font-size:23px;font-weight:700;letter-spacing:-0.01em;}
+  .brand-text .word .flow{background:linear-gradient(120deg,var(--violet-soft),var(--violet),#6d28d9);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .brand-text .tagline{font-family:'Inter',sans-serif;font-size:10px;letter-spacing:0.22em;color:var(--ink-faint);margin-top:5px;text-transform:uppercase;}
+
+  .net-badge{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;
+    background:linear-gradient(180deg,#1a1030,#140c26);
+    border:1px solid var(--glass-border);color:var(--violet-soft);
+    padding:7px 13px;border-radius:20px;display:flex;align-items:center;gap:8px;
+  }
+  .net-badge .pulse{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  .hero{margin:34px 0 30px;}
+  .hero h1{font-family:'Space Grotesk',sans-serif;font-size:30px;font-weight:600;margin:0 0 10px;letter-spacing:-0.01em;max-width:720px;}
+  .hero p{color:var(--ink-dim);font-size:15px;max-width:640px;line-height:1.6;margin:0;}
+  .hero p b{color:var(--ink);font-weight:600;}
+
+  /* ---------- glass panel base ---------- */
+  .panel{
+    background:var(--glass);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border:1px solid var(--glass-border);
+    border-radius:16px;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(0,0,0,0.2), 0 20px 60px -30px rgba(139,92,246,0.35);
+  }
+  .panel-head{
+    padding:16px 20px;border-bottom:1px solid var(--glass-border);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .panel-head h2{font-family:'Space Grotesk',sans-serif;font-size:14.5px;font-weight:600;margin:0;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+  @media (max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  /* ---------- wallet panel ---------- */
+  .wallet-body{padding:20px;}
+  .wallet-empty{display:flex;flex-direction:column;gap:12px;}
+  .btn{
+    font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13.5px;
+    border:none;border-radius:10px;padding:12px 16px;cursor:pointer;transition:.15s;
+  }
+  .btn-primary{background:linear-gradient(135deg,var(--violet-bright),#6d28d9);color:#fff;}
+  .btn-primary:hover{filter:brightness(1.12);}
+  .btn-ghost{background:transparent;border:1px solid var(--glass-border);color:var(--ink-dim);}
+  .btn-ghost:hover{border-color:var(--glass-border-hi);color:var(--ink);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .divider-or{display:flex;align-items:center;gap:10px;color:var(--ink-faint);font-size:11px;font-family:'IBM Plex Mono',monospace;margin:2px 0;}
+  .divider-or::before,.divider-or::after{content:'';flex:1;height:1px;background:var(--glass-border);}
+  .key-input-row{display:flex;gap:8px;}
+  .key-input-row input{
+    flex:1;background:#100a1e;border:1px solid var(--glass-border);border-radius:9px;
+    padding:11px 13px;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12.5px;outline:none;
+  }
+  .key-input-row input:focus{border-color:var(--glass-border-hi);}
+  .warn{font-size:11px;color:var(--ink-faint);line-height:1.5;margin-top:2px;}
+
+  .wallet-active{display:none;flex-direction:column;gap:14px;}
+  .wallet-row{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .wallet-row .label{font-size:11.5px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.05em;}
+  .addr-chip{
+    font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--violet-soft);
+    background:#150e28;border:1px solid var(--glass-border);padding:7px 11px;border-radius:8px;
+    cursor:pointer;
+  }
+  .balance-value{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:600;}
+  .balance-value span{font-size:14px;color:var(--ink-faint);font-weight:400;margin-left:6px;}
+  .status-pill{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 10px;border-radius:20px;
+    display:inline-flex;align-items:center;gap:6px;width:fit-content;
+  }
+  .status-pill.pending{background:#2c210a;color:var(--amber);border:1px solid #6b5322;}
+  .status-pill.ok{background:#0f2a1c;color:var(--green);border:1px solid #1e5136;}
+  .status-pill.err{background:#2c1410;color:var(--red);border:1px solid #6b2a20;}
+  .faucet-note a{color:var(--violet-soft);}
+  .faucet-note{font-size:11.5px;color:var(--ink-faint);line-height:1.55;}
+
+  /* ---------- command panel ---------- */
+  .chat-body{padding:18px 20px;display:flex;flex-direction:column;gap:11px;min-height:220px;}
+  .presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+  .preset{
+    font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:var(--ink-dim);
+    background:#140c26;border:1px solid var(--glass-border);
+    padding:7px 11px;border-radius:8px;cursor:pointer;transition:.15s;
+  }
+  .preset:hover{border-color:var(--glass-border-hi);color:var(--violet-soft);}
+  .bubble-user{align-self:flex-end;max-width:88%;background:linear-gradient(145deg,#3b2a63,#2a1c4d);border:1px solid var(--glass-border-hi);padding:11px 14px;border-radius:12px 12px 3px 12px;font-size:14px;line-height:1.5;}
+  .bubble-ai{align-self:flex-start;max-width:92%;background:#130c22;border:1px solid var(--glass-border);padding:11px 14px;border-radius:12px 12px 12px 3px;font-size:13.5px;line-height:1.55;color:var(--ink-dim);}
+  .bubble-ai b{color:var(--ink);}
+  .bubble-ai a{color:var(--violet-soft);}
+  .composer{margin-top:auto;display:flex;gap:8px;padding-top:6px;}
+  .composer input{flex:1;background:#140c26;border:1px solid var(--glass-border);border-radius:9px;padding:11px 13px;color:var(--ink);font-size:13.5px;font-family:'Inter',sans-serif;outline:none;}
+  .composer input:focus{border-color:var(--glass-border-hi);}
+
+  /* ---------- console ---------- */
+  .console-body{padding:14px 20px 18px;max-height:280px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.65;}
+  .console-line{margin-bottom:3px;white-space:pre-wrap;word-break:break-all;}
+  .console-line.req{color:var(--violet-soft);}
+  .console-line.res{color:var(--green);}
+  .console-line.err{color:var(--red);}
+  .console-line.sys{color:var(--ink-faint);}
+  .console-empty{color:var(--ink-faint);}
+
+  footer{margin-top:26px;padding-top:18px;border-top:1px solid var(--glass-border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:11.5px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace;}
+  footer a{color:var(--ink-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <svg class="logo-mark" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#c4b5fd"/><stop offset="55%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#4c1d95"/>
+          </linearGradient>
+        </defs>
+        <path d="M62 8 L30 42 L50 42 L38 62 L70 92 L58 62 L82 62 Z" stroke="url(#g1)" stroke-width="6" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <div class="brand-text">
+        <div class="word">Aether <span class="flow">Flow</span></div>
+        <div class="tagline">Flow Beyond Limits</div>
+      </div>
+    </div>
+    <div class="net-badge"><span class="pulse"></span>ITL Testnet · chain 19042026</div>
+  </header>
+
+  <div class="hero">
+    <h1>A live agent, wired to real testnet infrastructure.</h1>
+    <p>This runs against Interlink's actual gateway — <b>real SIWE auth, real balance reads, real signed transactions</b> on ITL Testnet. Generate a demo wallet, fund it from the faucet, and give it a command.</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- WALLET PANEL -->
+    <div class="panel">
+      <div class="panel-head"><h2>Wallet</h2><span class="eyebrow" id="walletEyebrow">Not connected</span></div>
+      <div class="wallet-body">
+        <div class="wallet-empty" id="walletEmpty">
+          <button class="btn btn-primary" id="genWalletBtn">Generate Demo Wallet</button>
+          <div class="divider-or">or</div>
+          <div class="key-input-row">
+            <input id="importKeyInput" type="password" placeholder="Paste an existing testnet private key" />
+            <button class="btn btn-ghost" id="importKeyBtn">Import</button>
+          </div>
+          <div class="warn">Signing happens locally in your browser — the key is never sent anywhere. Testnet key only, never a funded or mainnet key.</div>
+        </div>
+
+        <div class="wallet-active" id="walletActive">
+          <div class="wallet-row">
+            <span class="label">Address</span>
+            <span class="addr-chip" id="addrChip" title="Click to copy">—</span>
+          </div>
+          <div class="wallet-row">
+            <span class="label">Balance</span>
+            <div class="balance-value" id="balanceValue">—<span>tITL</span></div>
+          </div>
+          <div class="wallet-row">
+            <span class="label">Auth</span>
+            <span class="status-pill pending" id="authPill">Not authenticated</span>
+          </div>
+          <div class="faucet-note">Fund this address at the <a href="https://faucet.test-net.interlinklabs.ai/" target="_blank">Interlink testnet faucet</a> (claim via the InterLink app first), then hit Refresh.</div>
+          <button class="btn btn-ghost" id="refreshBalanceBtn">Refresh balance</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHEDULER PANEL -->
+    <div class="panel">
+      <div class="panel-head"><h2>Recurring transfers</h2><span class="eyebrow">Runs on this server, not your browser</span></div>
+      <div class="wallet-body">
+        <div id="schedulerBody">
+          <div class="warn">Loading agent wallet from the server…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMMAND PANEL -->
+    <div class="panel">
+      <div class="panel-head"><h2>Give it an instruction</h2><span class="eyebrow">Natural language</span></div>
+      <div class="chat-body" id="chatBody">
+        <div class="presets">
+          <div class="preset" data-cmd="Check my balance">Check balance</div>
+          <div class="preset" data-cmd="Send 0.1 tITL to 0x0000000000000000000000000000000000000000">One-time transfer</div>
+        </div>
+        <div class="bubble-ai">Generate or import a wallet on the left, fund it from the faucet, then tell me what to do — e.g. <i>"send 0.1 tITL to 0x..."</i>.</div>
+        <div class="composer">
+          <input id="cmdInput" type="text" placeholder="e.g. Send 0.1 tITL to 0x..." />
+          <button class="btn btn-primary" id="sendBtn" disabled>Run</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- LIVE CONSOLE -->
+  <div class="panel">
+    <div class="panel-head"><h2>Live RPC console</h2><span class="eyebrow">evm-rpc.test-net.interlinklabs.ai/v1</span></div>
+    <div class="console-body" id="consoleBody"><div class="console-empty">Waiting for activity →</div></div>
+  </div>
+
+  <footer>
+    <span>Real endpoint — no mocked responses. If a call fails with a network/CORS error, that's Interlink's gateway rejecting the browser origin, not a bug in this demo.</span>
+    <span><a href="https://explorer.test-net.interlinklabs.ai/" target="_blank">Explorer</a></span>
+  </footer>
+
+</div>
+
+<script>
+const RPC_BASE = "https://evm-rpc.test-net.interlinklabs.ai/v1";
+const CHAIN_ID = 19042026n;
+
+let wallet = null;
+let accessToken = null;
+let refreshToken = null;
+let tokenExpiry = 0;
+
+const $ = id => document.getElementById(id);
+const consoleBody = $('consoleBody');
+const walletEmpty = $('walletEmpty');
+const walletActive = $('walletActive');
+const walletEyebrow = $('walletEyebrow');
+const addrChip = $('addrChip');
+const balanceValue = $('balanceValue');
+const authPill = $('authPill');
+const sendBtn = $('sendBtn');
+const cmdInput = $('cmdInput');
+const chatBody = $('chatBody');
+
+function log(type, text){
+  const empty = consoleBody.querySelector('.console-empty');
+  if(empty) empty.remove();
+  const d = document.createElement('div');
+  d.className = 'console-line ' + type;
+  d.textContent = text;
+  consoleBody.appendChild(d);
+  consoleBody.scrollTop = consoleBody.scrollHeight;
+}
+
+function bubbleUser(text){
+  const d = document.createElement('div');
+  d.className='bubble-user'; d.textContent = text;
+  chatBody.insertBefore(d, chatBody.querySelector('.composer'));
+}
+function bubbleAI(html){
+  const d = document.createElement('div');
+  d.className='bubble-ai'; d.innerHTML = html;
+  chatBody.insertBefore(d, chatBody.querySelector('.composer'));
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+/* ---------- wallet setup ---------- */
+$('genWalletBtn').addEventListener('click', ()=>{
+  wallet = ethers.Wallet.createRandom();
+  log('sys', `Generated new demo wallet: ${wallet.address}`);
+  bubbleAI(`New wallet generated: <b>${wallet.address}</b>. Save this address, fund it via the faucet, then refresh your balance.<br><br><b>Private key (save it — shown once):</b><br><code style="font-size:11px">${wallet.privateKey}</code>`);
+  activateWallet();
+});
+$('importKeyBtn').addEventListener('click', ()=>{
+  const key = $('importKeyInput').value.trim();
+  if(!key) return;
+  try{
+    wallet = new ethers.Wallet(key.startsWith('0x') ? key : '0x'+key);
+    log('sys', `Imported wallet: ${wallet.address}`);
+    activateWallet();
+  }catch(e){
+    log('err', 'Invalid private key: ' + e.message);
+  }
+});
+$('refreshBalanceBtn').addEventListener('click', ()=> refreshBalance());
+addrChip.addEventListener('click', ()=>{
+  navigator.clipboard.writeText(wallet.address);
+  addrChip.textContent = 'Copied!';
+  setTimeout(()=> addrChip.textContent = short(wallet.address), 900);
+});
+
+function short(a){ return a.slice(0,8)+'…'+a.slice(-6); }
+
+function activateWallet(){
+  walletEmpty.style.display = 'none';
+  walletActive.style.display = 'flex';
+  walletEyebrow.textContent = 'Connected';
+  addrChip.textContent = short(wallet.address);
+  sendBtn.disabled = false;
+  authenticate().then(()=> refreshBalance());
+}
+
+/* ---------- auth flow (SIWE-style, per Interlink spec) ---------- */
+async function authenticate(){
+  authPill.className = 'status-pill pending';
+  authPill.textContent = 'Authenticating…';
+  try{
+    const challengeReq = { address: wallet.address };
+    log('req', `POST /auth/challenge  ${JSON.stringify(challengeReq)}`);
+    const cRes = await fetch(RPC_BASE + '/auth/challenge', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(challengeReq)
+    });
+    const cData = await cRes.json();
+    log('res', `← ${cRes.status} ${JSON.stringify(cData)}`);
+    const message = cData.message || cData.challenge || cData.data?.message || JSON.stringify(cData);
+
+    const signature = await wallet.signMessage(message);
+    log('sys', `Signed challenge locally with wallet key.`);
+
+    const verifyReq = { address: wallet.address, message, signature };
+    log('req', `POST /auth/verify  {address, message, signature}`);
+    const vRes = await fetch(RPC_BASE + '/auth/verify', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(verifyReq)
+    });
+    const vData = await vRes.json();
+    log('res', `← ${vRes.status} ${JSON.stringify(vData)}`);
+
+    accessToken = vData.accessToken || vData.access_token || vData.token;
+    refreshToken = vData.refreshToken || vData.refresh_token;
+    if(!accessToken) throw new Error('No accessToken in verify response — check console for the raw payload.');
+    tokenExpiry = Date.now() + 14*60*1000;
+
+    authPill.className = 'status-pill ok';
+    authPill.textContent = 'Authenticated ✓';
+  }catch(e){
+    authPill.className = 'status-pill err';
+    authPill.textContent = 'Auth failed';
+    log('err', 'Auth error: ' + e.message);
+    bubbleAI(`Authentication against Interlink's gateway failed: <b>${e.message}</b>. Check the console panel above for the raw request/response — if it's a CORS or network error, that means their gateway needs to allowlist this origin.`);
+  }
+}
+
+async function ensureAuth(){
+  if(!accessToken || Date.now() > tokenExpiry) await authenticate();
+}
+
+/* ---------- raw JSON-RPC call ---------- */
+async function rpcCall(method, params){
+  await ensureAuth();
+  const body = { jsonrpc:'2.0', id: Date.now(), method, params };
+  log('req', `POST /rpc  ${method}(${JSON.stringify(params)})`);
+  const res = await fetch(RPC_BASE + '/rpc', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if(res.status === 429 || data?.error?.key === 'RATE_LIMITED'){
+    log('err', 'Rate limited — backing off 1.5s and retrying once.');
+    await new Promise(r=>setTimeout(r,1500));
+    return rpcCall(method, params);
+  }
+  if(res.status === 401){
+    log('sys', 'Token expired mid-call — refreshing and retrying.');
+    accessToken = null;
+    await authenticate();
+    return rpcCall(method, params);
+  }
+  log(data.error ? 'err' : 'res', `← ${JSON.stringify(data)}`);
+  if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  return data.result;
+}
+
+/* ---------- balance ---------- */
+async function refreshBalance(){
+  try{
+    const hex = await rpcCall('eth_getBalance', [wallet.address, 'latest']);
+    balanceValue.innerHTML = ethers.formatEther(BigInt(hex)) + '<span>tITL</span>';
+  }catch(e){
+    balanceValue.innerHTML = 'error<span>see console</span>';
+  }
+}
+
+/* ---------- native transfer ---------- */
+async function sendNativeTransfer(to, amountEth){
+  bubbleAI(`Building transaction: <b>${amountEth} tITL</b> → <b>${short(to)}</b>…`);
+  const nonceHex = await rpcCall('eth_getTransactionCount', [wallet.address, 'latest']);
+  const gasPriceHex = await rpcCall('eth_gasPrice', []);
+  let priorityHex;
+  try{ priorityHex = await rpcCall('eth_maxPriorityFeePerGas', []); }
+  catch(e){ priorityHex = '0x3b9aca00'; } // 1 gwei fallback
+  let gasLimit;
+  try{
+    const estHex = await rpcCall('eth_estimateGas', [{from:wallet.address, to, value: ethers.toBeHex(ethers.parseEther(amountEth))}]);
+    gasLimit = BigInt(estHex);
+  }catch(e){ gasLimit = 21000n; }
+
+  const tx = {
+    type: 2,
+    chainId: CHAIN_ID,
+    nonce: Number(BigInt(nonceHex)),
+    to,
+    value: ethers.parseEther(amountEth),
+    gasLimit,
+    maxFeePerGas: BigInt(gasPriceHex),
+    maxPriorityFeePerGas: BigInt(priorityHex),
+    data: '0x'
+  };
+  log('sys', `Signing tx locally: ${JSON.stringify({...tx, value: tx.value.toString(), gasLimit: tx.gasLimit.toString(), maxFeePerGas: tx.maxFeePerGas.toString(), maxPriorityFeePerGas: tx.maxPriorityFeePerGas.toString()})}`);
+  const rawSigned = await wallet.signTransaction(tx);
+  const txHash = await rpcCall('eth_sendRawTransaction', [rawSigned]);
+  bubbleAI(`Submitted — tx hash <b>${short(txHash)}</b>. Waiting for confirmation (2–3 blocks)…`);
+
+  let receipt = null;
+  for(let i=0;i<20 && !receipt;i++){
+    await new Promise(r=>setTimeout(r,2000));
+    try{ receipt = await rpcCall('eth_getTransactionReceipt', [txHash]); }catch(e){}
+  }
+  if(!receipt){ bubbleAI(`Still pending after ~40s — check the console or explorer for <b>${short(txHash)}</b>.`); return; }
+
+  const sentBlock = BigInt(receipt.blockNumber);
+  let current = sentBlock;
+  for(let i=0;i<15 && (current - sentBlock) < 2n; i++){
+    await new Promise(r=>setTimeout(r,2000));
+    try{ current = BigInt(await rpcCall('eth_blockNumber', [])); }catch(e){}
+  }
+  bubbleAI(`Confirmed ✓ — <b>${amountEth} tITL</b> sent to <b>${short(to)}</b>. Tx: <code style="font-size:11px">${txHash}</code>`);
+  refreshBalance();
+}
+
+/* ---------- scheduler backend integration (same origin now) ---------- */
+const schedulerBody = $('schedulerBody');
+
+async function initScheduler() {
+  try {
+    const res = await fetch('/api/agent');
+    const data = await res.json();
+    renderScheduler(data);
+  } catch (e) {
+    schedulerBody.innerHTML = `<div class="warn">Couldn't reach the agent wallet endpoint — the server may still be waking up. Refresh in a few seconds.</div>`;
+  }
+}
+initScheduler();
+
+function renderScheduler(agent) {
+  schedulerBody.innerHTML = `
+    <div class="wallet-row"><span class="label">Agent address</span><span class="addr-chip">${short(agent.address)}</span></div>
+    <div class="wallet-row"><span class="label">Agent balance</span><div class="balance-value">${agent.balance}<span>tITL</span></div></div>
+    <div class="faucet-note" style="margin:8px 0 12px;">Fund the agent address above via the faucet before scheduling — it signs and sends on its own, unattended.</div>
+    <div class="key-input-row" style="margin-bottom:8px;"><input id="schedTo" placeholder="Recipient 0x..." /></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input id="schedAmt" placeholder="Amount tITL" style="flex:1;background:#100a1e;border:1px solid var(--glass-border);border-radius:9px;padding:11px;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12.5px;" />
+      <input id="schedDays" placeholder="Every N days" style="flex:1;background:#100a1e;border:1px solid var(--glass-border);border-radius:9px;padding:11px;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12.5px;" />
+    </div>
+    <button class="btn btn-primary" id="schedSubmitBtn">Schedule it</button>
+    <div id="schedList" style="margin-top:14px;"></div>
+  `;
+  $('schedSubmitBtn').addEventListener('click', async () => {
+    const to = $('schedTo').value.trim();
+    const amountEth = $('schedAmt').value.trim();
+    const intervalDays = $('schedDays').value.trim();
+    if (!to || !amountEth || !intervalDays) return;
+    const res = await fetch('/api/schedule', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, amountEth, intervalDays })
+    });
+    const job = await res.json();
+    log('sys', `Scheduled on backend: ${JSON.stringify(job)}`);
+    loadScheduleList();
+  });
+  loadScheduleList();
+}
+
+async function loadScheduleList() {
+  try {
+    const res = await fetch('/api/schedules');
+    const jobs = await res.json();
+    const list = $('schedList');
+    if (!list) return;
+    list.innerHTML = jobs.length ? jobs.map(j => `
+      <div class="wallet-row" style="border-top:1px solid var(--glass-border);padding-top:8px;margin-top:8px;">
+        <span class="label" style="max-width:70%;">${j.amountEth} tITL → ${short(j.to)} / ${j.intervalDays}d — ${j.runs} run(s)</span>
+        <span class="status-pill ${j.lastTxHash ? 'ok' : 'pending'}">${j.lastTxHash ? 'ran' : 'pending'}</span>
+      </div>`).join('') : `<div class="warn">No schedules yet.</div>`;
+  } catch (e) {}
+}
+
+/* ---------- NL command parsing ---------- */
+function parseIntent(text){
+  if(/balance/i.test(text)) return {type:'balance'};
+  if(/every|weekly|recurring|monday/i.test(text)) return {type:'recurring'};
+  const amt = text.match(/(\d+(\.\d+)?)\s*tITL/i);
+  const to = text.match(/0x[a-fA-F0-9]{40}/);
+  if(amt && to) return {type:'transfer', amount:amt[1], to:to[0]};
+  return {type:'unknown'};
+}
+
+async function run(){
+  const text = cmdInput.value.trim();
+  if(!text || !wallet) return;
+  bubbleUser(text);
+  cmdInput.value = '';
+  const intent = parseIntent(text);
+  if(intent.type === 'balance'){
+    await refreshBalance();
+    bubbleAI(`Current balance: <b>${balanceValue.textContent}</b>`);
+  } else if(intent.type === 'recurring'){
+    bubbleAI(`Recurring sends run on the scheduler backend, not this chat — set the Backend URL above and use the "Recurring transfers" panel to set it up.`);
+  } else if(intent.type === 'transfer'){
+    try{ await sendNativeTransfer(intent.to, intent.amount); }
+    catch(e){ bubbleAI(`Transaction failed: <b>${e.message}</b> — see console for the raw RPC error.`); }
+  } else {
+    bubbleAI(`I can check your balance or send a native transfer — try "send 0.1 tITL to 0x...".`);
+  }
+}
+sendBtn.addEventListener('click', run);
+cmdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
+document.querySelectorAll('.preset').forEach(p=> p.addEventListener('click', ()=>{ cmdInput.value = p.dataset.cmd; if(wallet) run(); }));
+</script>
+</body>
+</html>

@@ -38,7 +38,7 @@ function log(line) {
 async function authenticate() {
   const cRes = await fetch(RPC_BASE + '/auth/challenge', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ address: agentWallet.address })
+    body: JSON.stringify({ walletAddress: agentWallet.address, chainId: "19042026" })
   });
   const cData = await cRes.json();
   const message = cData.message || cData.challenge || cData.data?.message;
@@ -48,7 +48,7 @@ async function authenticate() {
 
   const vRes = await fetch(RPC_BASE + '/auth/verify', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ address: agentWallet.address, message, signature })
+    body: JSON.stringify({ walletAddress: agentWallet.address, chainId: "19042026", message, signature })
   });
   const vData = await vRes.json();
   accessToken = vData.accessToken || vData.access_token || vData.token;

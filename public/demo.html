@@ -348,7 +348,7 @@ async function authenticate(){
   authPill.className = 'status-pill pending';
   authPill.textContent = 'Authenticating…';
   try{
-    const challengeReq = { address: displayAddress };
+    const challengeReq = { walletAddress: displayAddress, chainId: "19042026" };
     log('req', `POST /auth/challenge  ${JSON.stringify(challengeReq)}`);
     const cRes = await fetch(RPC_BASE + '/auth/challenge', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(challengeReq) });
     const cData = await cRes.json();
@@ -358,7 +358,7 @@ async function authenticate(){
     const signature = await signMessage(message);
     log('sys', `Signed challenge (${mmProvider ? 'via connected wallet' : 'via local signing key'}).`);
 
-    const verifyReq = { address: displayAddress, message, signature };
+    const verifyReq = { walletAddress: displayAddress, chainId: "19042026", message, signature };
     log('req', `POST /auth/verify  {address, message, signature}`);
     const vRes = await fetch(RPC_BASE + '/auth/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(verifyReq) });
     const vData = await vRes.json();

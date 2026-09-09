@@ -41,7 +41,7 @@ async function authenticate() {
     body: JSON.stringify({ walletAddress: agentWallet.address, chainId: "19042026" })
   });
   const cData = await cRes.json();
-  const message = cData.message || cData.challenge || cData.data?.message;
+  const message = cData.result?.messageToSign || cData.message || cData.challenge || cData.data?.message;
   if (!message) throw new Error('No challenge message in response: ' + JSON.stringify(cData));
 
   const signature = await agentWallet.signMessage(message);
@@ -51,8 +51,8 @@ async function authenticate() {
     body: JSON.stringify({ walletAddress: agentWallet.address, chainId: "19042026", message, signature })
   });
   const vData = await vRes.json();
-  accessToken = vData.accessToken || vData.access_token || vData.token;
-  refreshToken = vData.refreshToken || vData.refresh_token;
+  accessToken = vData.result?.accessToken || vData.accessToken || vData.access_token || vData.token;
+refreshToken = vData.result?.refreshToken || vData.refreshToken || vData.refresh_token;
   if (!accessToken) throw new Error('Auth failed: ' + JSON.stringify(vData));
   tokenExpiry = Date.now() + 14 * 60 * 1000;
   log('Authenticated agent wallet with Interlink gateway.');

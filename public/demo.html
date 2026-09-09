@@ -356,7 +356,7 @@ async function authenticate(){
     if(!cRes.ok || cData.error){
   throw new Error(cData.error?.data?.reason || cData.error?.message || `Challenge request failed (${cRes.status})`);
 }
-const message = cData.message || cData.challenge || cData.data?.message;
+const message = cData.result?.messageToSign || cData.message || cData.challenge || cData.data?.message;
 if(!message) throw new Error('No challenge message found in response — see console for the raw payload.');
 
     const signature = await signMessage(message);
@@ -380,6 +380,9 @@ if(!message) throw new Error('No challenge message found in response — see con
     authPill.textContent = 'Auth failed';
     log('err', 'Auth error: ' + e.message);
     bubbleAI(`Authentication against Interlink's gateway failed: <b>${e.message}</b>. Check the console panel above — if it's a CORS or network error, their gateway needs to allowlist this origin.`);
+    throw e;
+    accessToken = vData.result?.accessToken || vData.accessToken || vData.access_token || vData.token;
+    refreshToken = vData.result?.refreshToken || vData.refreshToken || vData.refresh_token;
   }
 }
 async function ensureAuth(){ if(!accessToken || Date.now() > tokenExpiry) await authenticate(); }
@@ -412,6 +415,16 @@ async function refreshBalance(){
     balanceValue.innerHTML = ethers.formatEther(BigInt(hex)) + '<span>tITL</span>';
   }catch(e){ balanceValue.innerHTML = 'error<span>see console</span>'; }
 }
+
+async function rpcCall(method, params, _authRetried){
+  
+  if(res.status === 401){
+    if(_authRetried) throw new Error('Still unauthorized after refreshing once — stopping to avoid a retry loop.');
+    log('sys', 'Token expired mid-call — refreshing and retrying.');
+    accessToken = null;
+    await authenticate();
+    return rpcCall(method, params, true);
+  }
 
 /* ---------- native transfer (requires a local signing key) ---------- */
 async function sendNativeTransfer(to, amountEth){

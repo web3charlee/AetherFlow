@@ -1,7 +1,7 @@
 {
-  "name": "aetherflow-scheduler-backend",
+  "name": "aetherflow-app",
   "version": "1.0.0",
-  "description": "Runs recurring/scheduled Aether Flow transfers unattended on ITL Testnet",
+  "description": "Aether Flow — live testnet demo and recurring transfer scheduler",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

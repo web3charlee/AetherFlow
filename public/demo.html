@@ -159,7 +159,6 @@ footer a{color:var(--ink-dim);}
 
   <div class="grid">
 
-    <!-- WALLET PANEL -->
     <div class="panel facet">
       <div class="panel-head"><h2>Wallet</h2><span class="eyebrow" id="walletEyebrow">Not connected</span></div>
       <div class="wallet-body">
@@ -191,7 +190,6 @@ footer a{color:var(--ink-dim);}
       </div>
     </div>
 
-    <!-- SCHEDULER PANEL -->
     <div class="panel facet">
       <div class="panel-head"><h2>Recurring transfers</h2><span class="eyebrow">Runs on this server</span></div>
       <div class="wallet-body">
@@ -199,7 +197,6 @@ footer a{color:var(--ink-dim);}
       </div>
     </div>
 
-    <!-- COMMAND PANEL -->
     <div class="panel facet">
       <div class="panel-head"><h2>Give it an instruction</h2><span class="eyebrow">Natural language</span></div>
       <div class="chat-body" id="chatBody">
@@ -230,100 +227,101 @@ footer a{color:var(--ink-dim);}
 </div>
 
 <script>
-const RPC_BASE = "https://evm-rpc.test-net.interlinklabs.ai/v1";
-const CHAIN_ID = 19042026n;
+(function(){
+'use strict';
 
-let wallet = null;          // ethers.Wallet used for signing (local key)
-let displayAddress = null;  // address shown/authenticated — MetaMask address if connected, else wallet.address
-let mmProvider = null;      // window.ethereum, if connected via MetaMask
-let accessToken = null, refreshToken = null, tokenExpiry = 0;
+var RPC_BASE = "https://evm-rpc.test-net.interlinklabs.ai/v1";
+var CHAIN_ID = 19042026n;
 
-const $ = id => document.getElementById(id);
-const consoleBody = $('consoleBody');
-const walletEmpty = $('walletEmpty');
-const walletActive = $('walletActive');
-const walletEyebrow = $('walletEyebrow');
-const addrChip = $('addrChip');
-const balanceValue = $('balanceValue');
-const authPill = $('authPill');
-const sendBtn = $('sendBtn');
-const cmdInput = $('cmdInput');
-const chatBody = $('chatBody');
+var wallet = null;
+var displayAddress = null;
+var mmProvider = null;
+var accessToken = null, refreshToken = null, tokenExpiry = 0;
+
+function $(id){ return document.getElementById(id); }
+var consoleBody = $('consoleBody');
+var walletEmpty = $('walletEmpty');
+var walletActive = $('walletActive');
+var walletEyebrow = $('walletEyebrow');
+var addrChip = $('addrChip');
+var balanceValue = $('balanceValue');
+var authPill = $('authPill');
+var sendBtn = $('sendBtn');
+var cmdInput = $('cmdInput');
+var chatBody = $('chatBody');
 
 function log(type, text){
-  const empty = consoleBody.querySelector('.console-empty');
+  var empty = consoleBody.querySelector('.console-empty');
   if(empty) empty.remove();
-  const d = document.createElement('div');
+  var d = document.createElement('div');
   d.className = 'console-line ' + type;
   d.textContent = text;
   consoleBody.appendChild(d);
   consoleBody.scrollTop = consoleBody.scrollHeight;
 }
 function bubbleUser(text){
-  const d = document.createElement('div');
+  var d = document.createElement('div');
   d.className='bubble-user'; d.textContent = text;
   chatBody.insertBefore(d, chatBody.querySelector('.composer'));
 }
 function bubbleAI(html){
-  const d = document.createElement('div');
+  var d = document.createElement('div');
   d.className='bubble-ai'; d.innerHTML = html;
   chatBody.insertBefore(d, chatBody.querySelector('.composer'));
   chatBody.scrollTop = chatBody.scrollHeight;
 }
 function short(a){ return a.slice(0,8)+'…'+a.slice(-6); }
 
-/* ---------- Connect Wallet (MetaMask) — identity + balance ---------- */
-$('connectBtn').addEventListener('click', async () => {
+// ---------- Connect Wallet (MetaMask) ----------
+$('connectBtn').addEventListener('click', function(){
   if(!window.ethereum){
-    bubbleAI(`No browser wallet detected. Click "Generate a demo one instead" below, or install MetaMask and reload.`);
+    bubbleAI('No browser wallet detected. Click "Generate a demo one instead" below, or install MetaMask and reload.');
     return;
   }
-  try{
-    const accounts = await window.ethereum.request({ method:'eth_requestAccounts' });
+  window.ethereum.request({ method:'eth_requestAccounts' }).then(function(accounts){
     mmProvider = window.ethereum;
     displayAddress = accounts[0];
-    log('sys', `Connected wallet: ${displayAddress}`);
+    log('sys', 'Connected wallet: ' + displayAddress);
     activateWallet();
-  }catch(e){
+  }).catch(function(e){
     log('err', 'Wallet connect rejected: ' + e.message);
-  }
+  });
 });
-$('noWalletLink').addEventListener('click', () => {
+$('noWalletLink').addEventListener('click', function(){
   wallet = ethers.Wallet.createRandom();
   displayAddress = wallet.address;
   mmProvider = null;
-  log('sys', `Generated demo wallet: ${wallet.address}`);
-  bubbleAI(`New wallet generated: <b>${wallet.address}</b>. Save this — fund it via the faucet, then refresh your balance.<br><br><b>Private key (shown once):</b><br><code style="font-size:11px">${wallet.privateKey}</code>`);
+  log('sys', 'Generated demo wallet: ' + wallet.address);
+  bubbleAI('New wallet generated: <b>' + wallet.address + '</b>. Save this — fund it via the faucet, then refresh your balance.<br><br><b>Private key (shown once):</b><br><code style="font-size:11px">' + wallet.privateKey + '</code>');
   activateWallet();
 });
 
-/* ---------- optional separate signing key (for sending, if connected via MetaMask) ---------- */
-$('agentKeyToggle').addEventListener('click', () => {
-  const panel = $('agentKeyPanel');
-  const open = panel.style.display === 'flex';
+$('agentKeyToggle').addEventListener('click', function(){
+  var panel = $('agentKeyPanel');
+  var open = panel.style.display === 'flex';
   panel.style.display = open ? 'none' : 'flex';
   $('agentKeyToggle').textContent = open ? 'Enable sending from a different signing key ▸' : 'Hide ▾';
 });
-$('genWalletBtn').addEventListener('click', () => {
+$('genWalletBtn').addEventListener('click', function(){
   wallet = ethers.Wallet.createRandom();
-  log('sys', `Generated signing key: ${wallet.address}`);
-  bubbleAI(`Signing key generated: <b>${wallet.address}</b>. Fund it via the faucet to enable sends from it.<br><br><b>Private key (shown once):</b><br><code style="font-size:11px">${wallet.privateKey}</code>`);
+  log('sys', 'Generated signing key: ' + wallet.address);
+  bubbleAI('Signing key generated: <b>' + wallet.address + '</b>. Fund it via the faucet to enable sends from it.<br><br><b>Private key (shown once):</b><br><code style="font-size:11px">' + wallet.privateKey + '</code>');
 });
-$('importKeyBtn').addEventListener('click', () => {
-  const key = $('importKeyInput').value.trim();
+$('importKeyBtn').addEventListener('click', function(){
+  var key = $('importKeyInput').value.trim();
   if(!key) return;
   try{
-    wallet = new ethers.Wallet(key.startsWith('0x') ? key : '0x'+key);
-    log('sys', `Imported signing key: ${wallet.address}`);
-    bubbleAI(`Signing key imported: <b>${wallet.address}</b>.`);
+    wallet = new ethers.Wallet(key.indexOf('0x')===0 ? key : '0x'+key);
+    log('sys', 'Imported signing key: ' + wallet.address);
+    bubbleAI('Signing key imported: <b>' + wallet.address + '</b>.');
   }catch(e){ log('err', 'Invalid private key: ' + e.message); }
 });
 
-$('refreshBalanceBtn').addEventListener('click', ()=> refreshBalance());
-addrChip.addEventListener('click', ()=>{
+$('refreshBalanceBtn').addEventListener('click', function(){ refreshBalance(); });
+addrChip.addEventListener('click', function(){
   navigator.clipboard.writeText(displayAddress);
   addrChip.textContent = 'Copied!';
-  setTimeout(()=> addrChip.textContent = short(displayAddress), 900);
+  setTimeout(function(){ addrChip.textContent = short(displayAddress); }, 900);
 });
 
 function activateWallet(){
@@ -332,223 +330,244 @@ function activateWallet(){
   walletEyebrow.textContent = 'Connected';
   addrChip.textContent = short(displayAddress);
   sendBtn.disabled = false;
-  authenticate().then(()=> refreshBalance());
+  authenticate().then(function(){ refreshBalance(); }).catch(function(){});
 }
 
-/* ---------- signMessage abstraction: MetaMask personal_sign, or local ethers.Wallet ---------- */
-async function signMessage(message){
+function signMessage(message){
   if(mmProvider){
     return mmProvider.request({ method:'personal_sign', params:[message, displayAddress] });
   }
   return wallet.signMessage(message);
 }
 
-/* ---------- auth flow (SIWE-style, per Interlink spec) ---------- */
-async function authenticate(){
+// ---------- auth flow ----------
+function authenticate(){
   authPill.className = 'status-pill pending';
   authPill.textContent = 'Authenticating…';
-  try{
-    const challengeReq = { walletAddress: displayAddress, chainId: "19042026" };
-    log('req', `POST /auth/challenge  ${JSON.stringify(challengeReq)}`);
-    const cRes = await fetch(RPC_BASE + '/auth/challenge', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(challengeReq) });
-    const cData = await cRes.json();
-    log('res', `← ${cRes.status} ${JSON.stringify(cData)}`);
-    if(!cRes.ok || cData.error){
-  throw new Error(cData.error?.data?.reason || cData.error?.message || `Challenge request failed (${cRes.status})`);
+  var challengeReq = { walletAddress: displayAddress, chainId: "19042026" };
+  log('req', 'POST /auth/challenge  ' + JSON.stringify(challengeReq));
+  return fetch(RPC_BASE + '/auth/challenge', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(challengeReq) })
+    .then(function(cRes){
+      return cRes.json().then(function(cData){
+        log('res', '← ' + cRes.status + ' ' + JSON.stringify(cData));
+        if(!cRes.ok || cData.error){
+          throw new Error((cData.error && (cData.error.data && cData.error.data.reason || cData.error.message)) || ('Challenge request failed (' + cRes.status + ')'));
+        }
+        var message = (cData.result && cData.result.messageToSign) || cData.message || cData.challenge || (cData.data && cData.data.message);
+        var challengeId = cData.result && cData.result.challengeId;
+        if(!message) throw new Error('No challenge message found in response — see console for the raw payload.');
+        return signMessage(message).then(function(signature){
+          log('sys', 'Signed challenge (' + (mmProvider ? 'via connected wallet' : 'via local signing key') + ').');
+          var verifyReq = { walletAddress: displayAddress, chainId: "19042026", challengeId: challengeId, message: message, signature: signature };
+          log('req', 'POST /auth/verify  {walletAddress, chainId, message, signature}');
+          return fetch(RPC_BASE + '/auth/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(verifyReq) });
+        });
+      });
+    })
+    .then(function(vRes){
+      return vRes.json().then(function(vData){
+        log('res', '← ' + vRes.status + ' ' + JSON.stringify(vData));
+        if(!vRes.ok || vData.error){
+          throw new Error((vData.error && vData.error.message) || ('Verify request failed (' + vRes.status + ')'));
+        }
+        accessToken = (vData.result && vData.result.accessToken) || vData.accessToken || vData.access_token || vData.token;
+        refreshToken = (vData.result && vData.result.refreshToken) || vData.refreshToken || vData.refresh_token;
+        if(!accessToken) throw new Error('No accessToken in verify response — check console for the raw payload.');
+        tokenExpiry = Date.now() + 14*60*1000;
+        authPill.className = 'status-pill ok';
+        authPill.textContent = 'Authenticated ✓';
+      });
+    })
+    .catch(function(e){
+      authPill.className = 'status-pill err';
+      authPill.textContent = 'Auth failed';
+      log('err', 'Auth error: ' + e.message);
+      bubbleAI('Authentication against Interlink\'s gateway failed: <b>' + e.message + '</b>. Check the console panel above — if it\'s a CORS or network error, their gateway needs to allowlist this origin.');
+      throw e;
+    });
 }
-const message = cData.result?.messageToSign || cData.message || cData.challenge || cData.data?.message;
-if(!message) throw new Error('No challenge message found in response — see console for the raw payload.');
-
-    const signature = await signMessage(message);
-    log('sys', `Signed challenge (${mmProvider ? 'via connected wallet' : 'via local signing key'}).`);
-
-    const verifyReq = { walletAddress: displayAddress, chainId: "19042026", message, signature };
-    log('req', `POST /auth/verify  {address, message, signature}`);
-    const vRes = await fetch(RPC_BASE + '/auth/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(verifyReq) });
-    const vData = await vRes.json();
-    log('res', `← ${vRes.status} ${JSON.stringify(vData)}`);
-
-    accessToken = vData.accessToken || vData.access_token || vData.token;
-    refreshToken = vData.refreshToken || vData.refresh_token;
-    if(!accessToken) throw new Error('No accessToken in verify response — check console for the raw payload.');
-    tokenExpiry = Date.now() + 14*60*1000;
-
-    authPill.className = 'status-pill ok';
-    authPill.textContent = 'Authenticated ✓';
-  }catch(e){
-    authPill.className = 'status-pill err';
-    authPill.textContent = 'Auth failed';
-    log('err', 'Auth error: ' + e.message);
-    bubbleAI(`Authentication against Interlink's gateway failed: <b>${e.message}</b>. Check the console panel above — if it's a CORS or network error, their gateway needs to allowlist this origin.`);
-    throw e;
-    accessToken = vData.result?.accessToken || vData.accessToken || vData.access_token || vData.token;
-    refreshToken = vData.result?.refreshToken || vData.refreshToken || vData.refresh_token;
-  }
-}
-async function ensureAuth(){ if(!accessToken || Date.now() > tokenExpiry) await authenticate(); }
-
-async function rpcCall(method, params){
-  await ensureAuth();
-  const body = { jsonrpc:'2.0', id: Date.now(), method, params };
-  log('req', `POST /rpc  ${method}(${JSON.stringify(params)})`);
-  const res = await fetch(RPC_BASE + '/rpc', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken}, body: JSON.stringify(body) });
-  const data = await res.json();
-  if(res.status === 429 || data?.error?.key === 'RATE_LIMITED'){
-    log('err', 'Rate limited — backing off 1.5s and retrying once.');
-    await new Promise(r=>setTimeout(r,1500));
-    return rpcCall(method, params);
-  }
-  if(res.status === 401){
-    log('sys', 'Token expired mid-call — refreshing and retrying.');
-    accessToken = null;
-    await authenticate();
-    return rpcCall(method, params);
-  }
-  log(data.error ? 'err' : 'res', `← ${JSON.stringify(data)}`);
-  if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  return data.result;
+function ensureAuth(){
+  if(!accessToken || Date.now() > tokenExpiry) return authenticate();
+  return Promise.resolve();
 }
 
-async function refreshBalance(){
-  try{
-    const hex = await rpcCall('eth_getBalance', [displayAddress, 'latest']);
+function rpcCall(method, params, _authRetried){
+  return ensureAuth().then(function(){
+    var body = { jsonrpc:'2.0', id: Date.now(), method: method, params: params };
+    log('req', 'POST /rpc  ' + method + '(' + JSON.stringify(params) + ')');
+    return fetch(RPC_BASE + '/rpc', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken}, body: JSON.stringify(body) })
+      .then(function(res){
+        return res.json().then(function(data){
+          if(res.status === 429 || (data.error && data.error.key === 'RATE_LIMITED')){
+            log('err', 'Rate limited — backing off 1.5s and retrying once.');
+            return new Promise(function(resolve){ setTimeout(resolve, 1500); }).then(function(){ return rpcCall(method, params, _authRetried); });
+          }
+          if(res.status === 401){
+            if(_authRetried) throw new Error('Still unauthorized after refreshing once — stopping to avoid a retry loop.');
+            log('sys', 'Token expired mid-call — refreshing and retrying.');
+            accessToken = null;
+            return authenticate().then(function(){ return rpcCall(method, params, true); });
+          }
+          log(data.error ? 'err' : 'res', '← ' + JSON.stringify(data));
+          if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+          return data.result;
+        });
+      });
+  });
+}
+
+function refreshBalance(){
+  return rpcCall('eth_getBalance', [displayAddress, 'latest']).then(function(hex){
     balanceValue.innerHTML = ethers.formatEther(BigInt(hex)) + '<span>tITL</span>';
-  }catch(e){ balanceValue.innerHTML = 'error<span>see console</span>'; }
+  }).catch(function(e){
+    balanceValue.innerHTML = 'error<span>see console</span>';
+  });
 }
 
-async function rpcCall(method, params, _authRetried){
-  
-  if(res.status === 401){
-    if(_authRetried) throw new Error('Still unauthorized after refreshing once — stopping to avoid a retry loop.');
-    log('sys', 'Token expired mid-call — refreshing and retrying.');
-    accessToken = null;
-    await authenticate();
-    return rpcCall(method, params, true);
-  }
-
-/* ---------- native transfer (requires a local signing key) ---------- */
-async function sendNativeTransfer(to, amountEth){
+function sendNativeTransfer(to, amountEth){
   if(!wallet){
-    bubbleAI(`This address is connected for identity/balance only — to actually send, click "Enable sending from a different signing key" and generate or paste one.`);
-    return;
+    bubbleAI('This address is connected for identity/balance only — to actually send, click "Enable sending from a different signing key" and generate or paste one.');
+    return Promise.resolve();
   }
-  bubbleAI(`Building transaction: <b>${amountEth} tITL</b> → <b>${short(to)}</b>…`);
-  const nonceHex = await rpcCall('eth_getTransactionCount', [wallet.address, 'latest']);
-  const gasPriceHex = await rpcCall('eth_gasPrice', []);
-  let priorityHex;
-  try{ priorityHex = await rpcCall('eth_maxPriorityFeePerGas', []); }
-  catch(e){ priorityHex = '0x3b9aca00'; }
-  let gasLimit;
-  try{
-    const estHex = await rpcCall('eth_estimateGas', [{from:wallet.address, to, value: ethers.toBeHex(ethers.parseEther(amountEth))}]);
-    gasLimit = BigInt(estHex);
-  }catch(e){ gasLimit = 21000n; }
-
-  const tx = { type: 2, chainId: CHAIN_ID, nonce: Number(BigInt(nonceHex)), to, value: ethers.parseEther(amountEth), gasLimit, maxFeePerGas: BigInt(gasPriceHex), maxPriorityFeePerGas: BigInt(priorityHex), data: '0x' };
-  log('sys', `Signing tx locally with signing key ${short(wallet.address)}`);
-  const rawSigned = await wallet.signTransaction(tx);
-  const txHash = await rpcCall('eth_sendRawTransaction', [rawSigned]);
-  bubbleAI(`Submitted — tx hash <b>${short(txHash)}</b>. Waiting for confirmation (2–3 blocks)…`);
-
-  let receipt = null;
-  for(let i=0;i<20 && !receipt;i++){
-    await new Promise(r=>setTimeout(r,2000));
-    try{ receipt = await rpcCall('eth_getTransactionReceipt', [txHash]); }catch(e){}
-  }
-  if(!receipt){ bubbleAI(`Still pending after ~40s — check the console or explorer for <b>${short(txHash)}</b>.`); return; }
-
-  const sentBlock = BigInt(receipt.blockNumber);
-  let current = sentBlock;
-  for(let i=0;i<15 && (current - sentBlock) < 2n; i++){
-    await new Promise(r=>setTimeout(r,2000));
-    try{ current = BigInt(await rpcCall('eth_blockNumber', [])); }catch(e){}
-  }
-  bubbleAI(`Confirmed ✓ — <b>${amountEth} tITL</b> sent to <b>${short(to)}</b>. Tx: <code style="font-size:11px">${txHash}</code>`);
-  refreshBalance();
+  bubbleAI('Building transaction: <b>' + amountEth + ' tITL</b> → <b>' + short(to) + '</b>…');
+  var nonceHex, gasPriceHex, priorityHex, gasLimit;
+  return rpcCall('eth_getTransactionCount', [wallet.address, 'latest'])
+    .then(function(n){ nonceHex = n; return rpcCall('eth_gasPrice', []); })
+    .then(function(g){ gasPriceHex = g; return rpcCall('eth_maxPriorityFeePerGas', []).catch(function(){ return '0x3b9aca00'; }); })
+    .then(function(p){ priorityHex = p;
+      return rpcCall('eth_estimateGas', [{from:wallet.address, to:to, value: ethers.toBeHex(ethers.parseEther(amountEth))}]).then(function(est){
+        return BigInt(est);
+      }).catch(function(){ return 21000n; });
+    })
+    .then(function(gl){
+      gasLimit = gl;
+      var tx = { type: 2, chainId: CHAIN_ID, nonce: Number(BigInt(nonceHex)), to: to, value: ethers.parseEther(amountEth), gasLimit: gasLimit, maxFeePerGas: BigInt(gasPriceHex), maxPriorityFeePerGas: BigInt(priorityHex), data: '0x' };
+      log('sys', 'Signing tx locally with signing key ' + short(wallet.address));
+      return wallet.signTransaction(tx);
+    })
+    .then(function(rawSigned){ return rpcCall('eth_sendRawTransaction', [rawSigned]); })
+    .then(function(txHash){
+      bubbleAI('Submitted — tx hash <b>' + short(txHash) + '</b>. Waiting for confirmation (2–3 blocks)…');
+      var attempts = 0;
+      function pollReceipt(){
+        attempts++;
+        return new Promise(function(resolve){ setTimeout(resolve, 2000); }).then(function(){
+          return rpcCall('eth_getTransactionReceipt', [txHash]).catch(function(){ return null; });
+        }).then(function(receipt){
+          if(receipt) return receipt;
+          if(attempts >= 20) return null;
+          return pollReceipt();
+        });
+      }
+      return pollReceipt().then(function(receipt){
+        if(!receipt){ bubbleAI('Still pending after ~40s — check the console or explorer for <b>' + short(txHash) + '</b>.'); return; }
+        var sentBlock = BigInt(receipt.blockNumber);
+        var confirmAttempts = 0;
+        function pollBlocks(current){
+          confirmAttempts++;
+          if((current - sentBlock) >= 2n || confirmAttempts >= 15) return current;
+          return new Promise(function(resolve){ setTimeout(resolve, 2000); }).then(function(){
+            return rpcCall('eth_blockNumber', []).catch(function(){ return null; });
+          }).then(function(bn){
+            var next = bn ? BigInt(bn) : current;
+            return pollBlocks(next);
+          });
+        }
+        return pollBlocks(sentBlock).then(function(){
+          bubbleAI('Confirmed ✓ — <b>' + amountEth + ' tITL</b> sent to <b>' + short(to) + '</b>. Tx: <code style="font-size:11px">' + txHash + '</code>');
+          refreshBalance();
+        });
+      });
+    });
 }
 
-/* ---------- scheduler backend integration (same origin) ---------- */
-const schedulerBody = $('schedulerBody');
-async function initScheduler(){
-  try{
-    const res = await fetch('/api/agent');
-    const data = await res.json();
+// ---------- scheduler ----------
+var schedulerBody = $('schedulerBody');
+function initScheduler(){
+  fetch('/api/agent').then(function(res){ return res.json(); }).then(function(data){
     renderScheduler(data);
-  }catch(e){
-    schedulerBody.innerHTML = `<div class="faucet-note">Couldn't reach the agent wallet endpoint — the server may still be waking up. Refresh in a few seconds.</div>`;
-  }
+  }).catch(function(e){
+    schedulerBody.innerHTML = '<div class="faucet-note">Couldn\'t reach the agent wallet endpoint — the server may still be waking up. Refresh in a few seconds.</div>';
+  });
 }
 initScheduler();
 
 function renderScheduler(agent){
-  schedulerBody.innerHTML = `
-    <div class="wallet-row"><span class="label">Agent address</span><span class="addr-chip facet-sm">${short(agent.address)}</span></div>
-    <div class="wallet-row"><span class="label">Agent balance</span><div class="balance-value">${agent.balance}<span>tITL</span></div></div>
-    <div class="faucet-note" style="margin:8px 0 12px;">Fund the agent address above via the faucet before scheduling — it signs and sends on its own, unattended.</div>
-    <div class="key-input-row" style="margin-bottom:8px;"><input id="schedTo" placeholder="Recipient 0x..." /></div>
-    <div style="display:flex;gap:8px;margin-bottom:8px;">
-      <input id="schedAmt" placeholder="Amount tITL" style="flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12.5px;" />
-      <input id="schedDays" placeholder="Every N days" style="flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12.5px;" />
-    </div>
-    <button class="btn btn-primary facet-sm" id="schedSubmitBtn">Schedule it</button>
-    <div id="schedList" style="margin-top:14px;"></div>
-  `;
-  $('schedSubmitBtn').addEventListener('click', async () => {
-    const to = $('schedTo').value.trim();
-    const amountEth = $('schedAmt').value.trim();
-    const intervalDays = $('schedDays').value.trim();
+  schedulerBody.innerHTML =
+    '<div class="wallet-row"><span class="label">Agent address</span><span class="addr-chip facet-sm">' + short(agent.address) + '</span></div>' +
+    '<div class="wallet-row"><span class="label">Agent balance</span><div class="balance-value">' + agent.balance + '<span>tITL</span></div></div>' +
+    '<div class="faucet-note" style="margin:8px 0 12px;">Fund the agent address above via the faucet before scheduling — it signs and sends on its own, unattended.</div>' +
+    '<div class="key-input-row" style="margin-bottom:8px;"><input id="schedTo" placeholder="Recipient 0x..." /></div>' +
+    '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
+      '<input id="schedAmt" placeholder="Amount tITL" style="flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px;color:var(--ink);font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;" />' +
+      '<input id="schedDays" placeholder="Every N days" style="flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px;color:var(--ink);font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;" />' +
+    '</div>' +
+    '<button class="btn btn-primary facet-sm" id="schedSubmitBtn">Schedule it</button>' +
+    '<div id="schedList" style="margin-top:14px;"></div>';
+
+  $('schedSubmitBtn').addEventListener('click', function(){
+    var to = $('schedTo').value.trim();
+    var amountEth = $('schedAmt').value.trim();
+    var intervalDays = $('schedDays').value.trim();
     if (!to || !amountEth || !intervalDays) return;
-    const res = await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to, amountEth, intervalDays }) });
-    const job = await res.json();
-    log('sys', `Scheduled on backend: ${JSON.stringify(job)}`);
-    loadScheduleList();
+    fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to: to, amountEth: amountEth, intervalDays: intervalDays }) })
+      .then(function(res){ return res.json(); })
+      .then(function(job){
+        log('sys', 'Scheduled on backend: ' + JSON.stringify(job));
+        loadScheduleList();
+      });
   });
   loadScheduleList();
 }
-async function loadScheduleList(){
-  try{
-    const res = await fetch('/api/schedules');
-    const jobs = await res.json();
-    const list = $('schedList');
+function loadScheduleList(){
+  fetch('/api/schedules').then(function(res){ return res.json(); }).then(function(jobs){
+    var list = $('schedList');
     if(!list) return;
-    list.innerHTML = jobs.length ? jobs.map(j => `
-      <div class="wallet-row" style="border-top:1px solid var(--glass-border);padding-top:8px;margin-top:8px;">
-        <span class="label" style="max-width:70%;">${j.amountEth} tITL → ${short(j.to)} / ${j.intervalDays}d — ${j.runs} run(s)</span>
-        <span class="status-pill ${j.lastTxHash ? 'ok' : 'pending'}">${j.lastTxHash ? 'ran' : 'pending'}</span>
-      </div>`).join('') : `<div class="faucet-note">No schedules yet.</div>`;
-  }catch(e){}
+    list.innerHTML = jobs.length ? jobs.map(function(j){
+      return '<div class="wallet-row" style="border-top:1px solid var(--glass-border);padding-top:8px;margin-top:8px;">' +
+        '<span class="label" style="max-width:70%;">' + j.amountEth + ' tITL → ' + short(j.to) + ' / ' + j.intervalDays + 'd — ' + j.runs + ' run(s)</span>' +
+        '<span class="status-pill ' + (j.lastTxHash ? 'ok' : 'pending') + '">' + (j.lastTxHash ? 'ran' : 'pending') + '</span>' +
+        '</div>';
+    }).join('') : '<div class="faucet-note">No schedules yet.</div>';
+  }).catch(function(e){});
 }
 
-/* ---------- NL command parsing ---------- */
+// ---------- NL command parsing ----------
 function parseIntent(text){
   if(/balance/i.test(text)) return {type:'balance'};
   if(/every|weekly|recurring|monday/i.test(text)) return {type:'recurring'};
-  const amt = text.match(/(\d+(\.\d+)?)\s*tITL/i);
-  const to = text.match(/0x[a-fA-F0-9]{40}/);
+  var amt = text.match(/(\d+(\.\d+)?)\s*tITL/i);
+  var to = text.match(/0x[a-fA-F0-9]{40}/);
   if(amt && to) return {type:'transfer', amount:amt[1], to:to[0]};
   return {type:'unknown'};
 }
-async function run(){
-  const text = cmdInput.value.trim();
+function run(){
+  var text = cmdInput.value.trim();
   if(!text || !displayAddress) return;
   bubbleUser(text);
   cmdInput.value = '';
-  const intent = parseIntent(text);
+  var intent = parseIntent(text);
   if(intent.type === 'balance'){
-    await refreshBalance();
-    bubbleAI(`Current balance: <b>${balanceValue.textContent}</b>`);
+    refreshBalance().then(function(){
+      bubbleAI('Current balance: <b>' + balanceValue.textContent + '</b>');
+    });
   } else if(intent.type === 'recurring'){
-    bubbleAI(`Recurring sends run on the "Recurring transfers" panel, not this chat — it's already wired to the backend.`);
+    bubbleAI('Recurring sends run on the "Recurring transfers" panel, not this chat — it\'s already wired to the backend.');
   } else if(intent.type === 'transfer'){
-    try{ await sendNativeTransfer(intent.to, intent.amount); }
-    catch(e){ bubbleAI(`Transaction failed: <b>${e.message}</b> — see console for the raw RPC error.`); }
+    sendNativeTransfer(intent.to, intent.amount).catch(function(e){
+      bubbleAI('Transaction failed: <b>' + e.message + '</b> — see console for the raw RPC error.');
+    });
   } else {
-    bubbleAI(`I can check your balance or send a native transfer — try "send 0.1 tITL to 0x...".`);
+    bubbleAI('I can check your balance or send a native transfer — try "send 0.1 tITL to 0x...".');
   }
 }
 sendBtn.addEventListener('click', run);
-cmdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
-document.querySelectorAll('.preset').forEach(p=> p.addEventListener('click', ()=>{ cmdInput.value = p.dataset.cmd; if(displayAddress) run(); }));
+cmdInput.addEventListener('keydown', function(e){ if(e.key==='Enter') run(); });
+Array.prototype.forEach.call(document.querySelectorAll('.preset'), function(p){
+  p.addEventListener('click', function(){ cmdInput.value = p.dataset.cmd; if(displayAddress) run(); });
+});
+
+})();
 </script>
 </body>
 </html>

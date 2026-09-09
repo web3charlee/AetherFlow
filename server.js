@@ -4,19 +4,18 @@ const cors = require('cors');
 const { ethers } = require('ethers');
 const cron = require('node-cron');
 const fs = require('fs');
+const path = require('path');
 
 const RPC_BASE = 'https://evm-rpc.test-net.interlinklabs.ai/v1';
 const CHAIN_ID = 19042026n;
 const DB_FILE = './schedules.json';
 
-const path = require('path');
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/demo', (req, res) => res.sendFile(path.join(__dirname, 'public', 'demo.html')));
 
-// ---- agent wallet (server-side signer for unattended/recurring sends) ----
 let agentWallet;
 if (process.env.AGENT_PRIVATE_KEY) {
   agentWallet = new ethers.Wallet(process.env.AGENT_PRIVATE_KEY);
@@ -41,19 +40,26 @@ async function authenticate() {
     body: JSON.stringify({ walletAddress: agentWallet.address, chainId: "19042026" })
   });
   const cData = await cRes.json();
+  if (!cRes.ok || cData.error) {
+    throw new Error((cData.error && (cData.error.data?.reason || cData.error.message)) || `Challenge request failed (${cRes.status})`);
+  }
   const message = cData.result?.messageToSign || cData.message || cData.challenge || cData.data?.message;
+  const challengeId = cData.result?.challengeId;
   if (!message) throw new Error('No challenge message in response: ' + JSON.stringify(cData));
 
   const signature = await agentWallet.signMessage(message);
 
   const vRes = await fetch(RPC_BASE + '/auth/verify', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ walletAddress: agentWallet.address, chainId: "19042026", message, signature })
+    body: JSON.stringify({ walletAddress: agentWallet.address, chainId: "19042026", challengeId, message, signature })
   });
   const vData = await vRes.json();
+  if (!vRes.ok || vData.error) {
+    throw new Error((vData.error && vData.error.message) || `Verify request failed (${vRes.status})`);
+  }
   accessToken = vData.result?.accessToken || vData.accessToken || vData.access_token || vData.token;
-refreshToken = vData.result?.refreshToken || vData.refreshToken || vData.refresh_token;
-  if (!accessToken) throw new Error('Auth failed: ' + JSON.stringify(vData));
+  refreshToken = vData.result?.refreshToken || vData.refreshToken || vData.refresh_token;
+  if (!accessToken) throw new Error('Auth failed: no accessToken in ' + JSON.stringify(vData));
   tokenExpiry = Date.now() + 14 * 60 * 1000;
   log('Authenticated agent wallet with Interlink gateway.');
 }
@@ -76,8 +82,9 @@ async function rpcCall(method, params, _retried) {
     return rpcCall(method, params, true);
   }
   if (res.status === 429 || data?.error?.key === 'RATE_LIMITED') {
+    if (_retried) throw new Error('Still rate limited after one retry.');
     await new Promise(r => setTimeout(r, 1500));
-    return rpcCall(method, params, _retried);
+    return rpcCall(method, params, true);
   }
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   return data.result;
@@ -103,7 +110,6 @@ async function sendNative(to, amountEth) {
   return rpcCall('eth_sendRawTransaction', [raw]);
 }
 
-// ---- API ----
 app.get('/api/agent', async (req, res) => {
   try {
     const balHex = await rpcCall('eth_getBalance', [agentWallet.address, 'latest']);
@@ -132,7 +138,6 @@ app.delete('/api/schedule/:id', (req, res) => {
 
 app.get('/api/logs', (req, res) => res.json(logs.slice(-100)));
 
-// ---- the part that actually makes it "live and kicking" while nobody's watching ----
 cron.schedule('* * * * *', async () => {
   const schedules = loadSchedules();
   const now = Date.now();

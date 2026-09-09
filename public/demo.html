@@ -353,7 +353,11 @@ async function authenticate(){
     const cRes = await fetch(RPC_BASE + '/auth/challenge', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(challengeReq) });
     const cData = await cRes.json();
     log('res', `← ${cRes.status} ${JSON.stringify(cData)}`);
-    const message = cData.message || cData.challenge || cData.data?.message || JSON.stringify(cData);
+    if(!cRes.ok || cData.error){
+  throw new Error(cData.error?.data?.reason || cData.error?.message || `Challenge request failed (${cRes.status})`);
+}
+const message = cData.message || cData.challenge || cData.data?.message;
+if(!message) throw new Error('No challenge message found in response — see console for the raw payload.');
 
     const signature = await signMessage(message);
     log('sys', `Signed challenge (${mmProvider ? 'via connected wallet' : 'via local signing key'}).`);

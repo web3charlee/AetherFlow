@@ -165,7 +165,7 @@ footer a{color:var(--ink-dim);}
         <div class="wallet-connect-empty" id="walletEmpty">
           <div class="mm-icon">🦊</div>
           <button class="btn btn-primary btn-block facet-sm" id="connectBtn">Connect Wallet</button>
-          <p>Connects via your browser wallet for identity and live balance.</p>
+          <p>Connects via your browser wallet — proves it's really you, shows your balance. No key ever leaves your browser.</p>
           <button class="no-wallet-link" id="noWalletLink">Don't have a wallet? Generate a demo one instead</button>
         </div>
 
@@ -175,23 +175,12 @@ footer a{color:var(--ink-dim);}
           <div class="wallet-row"><span class="label">Auth</span><span class="status-pill pending" id="authPill">Not authenticated</span></div>
           <div class="faucet-note">Fund this address at the <a href="https://faucet.test-net.interlinklabs.ai/" target="_blank">Interlink testnet faucet</a> (claim via the InterLink app first), then hit Refresh.</div>
           <button class="btn btn-ghost facet-sm" id="refreshBalanceBtn">Refresh balance</button>
-
-          <button class="agent-key-toggle" id="agentKeyToggle">Enable sending from a different signing key ▸</button>
-          <div class="agent-key-panel" id="agentKeyPanel">
-            <div class="warn">Interlink's gateway only accepts pre-signed raw transactions, which a browser wallet like MetaMask can't produce directly. To actually send from this demo, generate or paste a local signing key — it signs entirely in your browser and is never transmitted.</div>
-            <button class="btn btn-ghost facet-sm" id="genWalletBtn">Generate signing key</button>
-            <div class="divider-or">or</div>
-            <div class="key-input-row">
-              <input id="importKeyInput" type="password" placeholder="Paste an existing testnet private key" />
-              <button class="btn btn-ghost facet-sm" id="importKeyBtn">Import</button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
 
     <div class="panel facet">
-      <div class="panel-head"><h2>Recurring transfers</h2><span class="eyebrow">Runs on this server</span></div>
+      <div class="panel-head"><h2>Execution agent</h2><span class="eyebrow">Signs & sends on your behalf</span></div>
       <div class="wallet-body">
         <div id="schedulerBody"><div class="faucet-note">Loading agent wallet from the server…</div></div>
       </div>
@@ -204,7 +193,7 @@ footer a{color:var(--ink-dim);}
           <div class="preset" data-cmd="Check my balance">Check balance</div>
           <div class="preset" data-cmd="Send 0.1 tITL to 0x0000000000000000000000000000000000000000">One-time transfer</div>
         </div>
-        <div class="bubble-ai">Connect a wallet on the left, fund it from the faucet, then tell me what to do — e.g. <i>"send 0.1 tITL to 0x..."</i>.</div>
+        <div class="bubble-ai">Connect a wallet on the left to sign in. Then fund the <b>agent</b> address in the panel to the right (that's what actually executes) and tell me what to do — e.g. <i>"send 0.1 tITL to 0x..."</i>.</div>
         <div class="composer">
           <input id="cmdInput" type="text" placeholder="e.g. Send 0.1 tITL to 0x..." />
           <button class="btn btn-primary facet-sm" id="sendBtn" disabled>Run</button>
@@ -294,27 +283,6 @@ $('noWalletLink').addEventListener('click', function(){
   log('sys', 'Generated demo wallet: ' + wallet.address);
   bubbleAI('New wallet generated: <b>' + wallet.address + '</b>. Save this — fund it via the faucet, then refresh your balance.<br><br><b>Private key (shown once):</b><br><code style="font-size:11px">' + wallet.privateKey + '</code>');
   activateWallet();
-});
-
-$('agentKeyToggle').addEventListener('click', function(){
-  var panel = $('agentKeyPanel');
-  var open = panel.style.display === 'flex';
-  panel.style.display = open ? 'none' : 'flex';
-  $('agentKeyToggle').textContent = open ? 'Enable sending from a different signing key ▸' : 'Hide ▾';
-});
-$('genWalletBtn').addEventListener('click', function(){
-  wallet = ethers.Wallet.createRandom();
-  log('sys', 'Generated signing key: ' + wallet.address);
-  bubbleAI('Signing key generated: <b>' + wallet.address + '</b>. Fund it via the faucet to enable sends from it.<br><br><b>Private key (shown once):</b><br><code style="font-size:11px">' + wallet.privateKey + '</code>');
-});
-$('importKeyBtn').addEventListener('click', function(){
-  var key = $('importKeyInput').value.trim();
-  if(!key) return;
-  try{
-    wallet = new ethers.Wallet(key.indexOf('0x')===0 ? key : '0x'+key);
-    log('sys', 'Imported signing key: ' + wallet.address);
-    bubbleAI('Signing key imported: <b>' + wallet.address + '</b>.');
-  }catch(e){ log('err', 'Invalid private key: ' + e.message); }
 });
 
 $('refreshBalanceBtn').addEventListener('click', function(){ refreshBalance(); });
@@ -425,59 +393,19 @@ function refreshBalance(){
 }
 
 function sendNativeTransfer(to, amountEth){
-  if(!wallet){
-    bubbleAI('This address is connected for identity/balance only — to actually send, click "Enable sending from a different signing key" and generate or paste one.');
-    return Promise.resolve();
-  }
-  bubbleAI('Building transaction: <b>' + amountEth + ' tITL</b> → <b>' + short(to) + '</b>…');
-  var nonceHex, gasPriceHex, priorityHex, gasLimit;
-  return rpcCall('eth_getTransactionCount', [wallet.address, 'latest'])
-    .then(function(n){ nonceHex = n; return rpcCall('eth_gasPrice', []); })
-    .then(function(g){ gasPriceHex = g; return rpcCall('eth_maxPriorityFeePerGas', []).catch(function(){ return '0x3b9aca00'; }); })
-    .then(function(p){ priorityHex = p;
-      return rpcCall('eth_estimateGas', [{from:wallet.address, to:to, value: ethers.toBeHex(ethers.parseEther(amountEth))}]).then(function(est){
-        return BigInt(est);
-      }).catch(function(){ return 21000n; });
-    })
-    .then(function(gl){
-      gasLimit = gl;
-      var tx = { type: 2, chainId: CHAIN_ID, nonce: Number(BigInt(nonceHex)), to: to, value: ethers.parseEther(amountEth), gasLimit: gasLimit, maxFeePerGas: BigInt(gasPriceHex), maxPriorityFeePerGas: BigInt(priorityHex), data: '0x' };
-      log('sys', 'Signing tx locally with signing key ' + short(wallet.address));
-      return wallet.signTransaction(tx);
-    })
-    .then(function(rawSigned){ return rpcCall('eth_sendRawTransaction', [rawSigned]); })
-    .then(function(txHash){
-      bubbleAI('Submitted — tx hash <b>' + short(txHash) + '</b>. Waiting for confirmation (2–3 blocks)…');
-      var attempts = 0;
-      function pollReceipt(){
-        attempts++;
-        return new Promise(function(resolve){ setTimeout(resolve, 2000); }).then(function(){
-          return rpcCall('eth_getTransactionReceipt', [txHash]).catch(function(){ return null; });
-        }).then(function(receipt){
-          if(receipt) return receipt;
-          if(attempts >= 20) return null;
-          return pollReceipt();
-        });
+  bubbleAI('Sending <b>' + amountEth + ' tITL</b> → <b>' + short(to) + '</b> via the Aether Flow agent…');
+  return fetch('/api/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to: to, amountEth: amountEth }) })
+    .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+    .then(function(r){
+      log(r.status >= 400 ? 'err' : 'res', 'POST /api/send ← ' + JSON.stringify(r.data));
+      if(r.status >= 400) throw new Error(r.data.error || 'Send failed');
+      if(!r.data.confirmed){
+        bubbleAI('Submitted — tx hash <b>' + short(r.data.hash) + '</b>. Still confirming, check the explorer if it takes a bit longer.');
+      } else {
+        bubbleAI('Confirmed ✓ — <b>' + amountEth + ' tITL</b> sent to <b>' + short(to) + '</b>. Tx: <code style="font-size:11px">' + r.data.hash + '</code>');
       }
-      return pollReceipt().then(function(receipt){
-        if(!receipt){ bubbleAI('Still pending after ~40s — check the console or explorer for <b>' + short(txHash) + '</b>.'); return; }
-        var sentBlock = BigInt(receipt.blockNumber);
-        var confirmAttempts = 0;
-        function pollBlocks(current){
-          confirmAttempts++;
-          if((current - sentBlock) >= 2n || confirmAttempts >= 15) return current;
-          return new Promise(function(resolve){ setTimeout(resolve, 2000); }).then(function(){
-            return rpcCall('eth_blockNumber', []).catch(function(){ return null; });
-          }).then(function(bn){
-            var next = bn ? BigInt(bn) : current;
-            return pollBlocks(next);
-          });
-        }
-        return pollBlocks(sentBlock).then(function(){
-          bubbleAI('Confirmed ✓ — <b>' + amountEth + ' tITL</b> sent to <b>' + short(to) + '</b>. Tx: <code style="font-size:11px">' + txHash + '</code>');
-          refreshBalance();
-        });
-      });
+      refreshBalance();
+      loadScheduleList();
     });
 }
 
@@ -496,7 +424,8 @@ function renderScheduler(agent){
   schedulerBody.innerHTML =
     '<div class="wallet-row"><span class="label">Agent address</span><span class="addr-chip facet-sm">' + short(agent.address) + '</span></div>' +
     '<div class="wallet-row"><span class="label">Agent balance</span><div class="balance-value">' + agent.balance + '<span>tITL</span></div></div>' +
-    '<div class="faucet-note" style="margin:8px 0 12px;">Fund the agent address above via the faucet before scheduling — it signs and sends on its own, unattended.</div>' +
+    '<div class="faucet-note" style="margin:8px 0 14px;">Fund this address via the faucet — it signs and sends every transfer you request, one-time or recurring, without you ever pasting a key.</div>' +
+    '<div class="eyebrow" style="margin-bottom:8px;display:block;">Set up a recurring transfer</div>' +
     '<div class="key-input-row" style="margin-bottom:8px;"><input id="schedTo" placeholder="Recipient 0x..." /></div>' +
     '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
       '<input id="schedAmt" placeholder="Amount tITL" style="flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px;color:var(--ink);font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;" />' +

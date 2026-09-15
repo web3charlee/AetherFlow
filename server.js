@@ -110,6 +110,44 @@ async function sendNative(to, amountEth) {
   return rpcCall('eth_sendRawTransaction', [raw]);
 }
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function sendNativeAndConfirm(to, amountEth, maxWaitMs = 25000) {
+  const hash = await sendNative(to, amountEth);
+  let receipt = null;
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs && !receipt) {
+    await sleep(1500);
+    try { receipt = await rpcCall('eth_getTransactionReceipt', [hash]); } catch (e) {}
+  }
+  let confirmed = false;
+  if (receipt) {
+    const sentBlock = BigInt(receipt.blockNumber);
+    const startB = Date.now();
+    while (Date.now() - startB < 10000 && !confirmed) {
+      try {
+        const bn = BigInt(await rpcCall('eth_blockNumber', []));
+        if (bn - sentBlock >= 2n) confirmed = true;
+      } catch (e) {}
+      if (!confirmed) await sleep(1500);
+    }
+  }
+  return { hash, confirmed, blockNumber: receipt ? receipt.blockNumber : null };
+}
+
+app.post('/api/send', async (req, res) => {
+  const { to, amountEth } = req.body;
+  if (!to || !amountEth) return res.status(400).json({ error: 'to and amountEth required' });
+  try {
+    const result = await sendNativeAndConfirm(to, amountEth);
+    log(`One-time send: ${amountEth} tITL -> ${to} (${result.hash}) confirmed=${result.confirmed}`);
+    res.json(result);
+  } catch (e) {
+    log(`One-time send failed: ${e.message}`);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/agent', async (req, res) => {
   try {
     const balHex = await rpcCall('eth_getBalance', [agentWallet.address, 'latest']);

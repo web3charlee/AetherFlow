@@ -157,14 +157,36 @@ app.get('/api/agent', async (req, res) => {
 
 app.get('/api/schedules', (req, res) => res.json(loadSchedules()));
 
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+// dayOfWeek: 0=Sunday..6=Saturday. time: "HH:MM" in 24h UTC.
+function nextWeeklyRun(dayOfWeek, time, from) {
+  from = from || new Date();
+  const [hh, mm] = time.split(':').map(Number);
+  const target = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate(), hh, mm, 0, 0));
+  const diff = (dayOfWeek - target.getUTCDay() + 7) % 7;
+  target.setUTCDate(target.getUTCDate() + diff);
+  if (target.getTime() <= from.getTime()) target.setUTCDate(target.getUTCDate() + 7);
+  return target.getTime();
+}
+
 app.post('/api/schedule', (req, res) => {
-  const { to, amountEth, intervalDays } = req.body;
-  if (!to || !amountEth || !intervalDays) return res.status(400).json({ error: 'to, amountEth, intervalDays required' });
+  const { to, amountEth, dayOfWeek, time } = req.body;
+  if (!to || !amountEth || dayOfWeek === undefined || !time) {
+    return res.status(400).json({ error: 'to, amountEth, dayOfWeek (0-6), time (HH:MM UTC) required' });
+  }
+  const dow = Number(dayOfWeek);
+  if (!/^\d{1,2}:\d{2}$/.test(time)) return res.status(400).json({ error: 'time must be HH:MM (24h, UTC)' });
   const schedules = loadSchedules();
-  const job = { id: Date.now().toString(), to, amountEth, intervalDays: Number(intervalDays), nextRun: Date.now(), lastTxHash: null, runs: 0 };
+  const job = {
+    id: Date.now().toString(), to, amountEth,
+    dayOfWeek: dow, time,
+    nextRun: nextWeeklyRun(dow, time),
+    lastTxHash: null, runs: 0
+  };
   schedules.push(job);
   saveSchedules(schedules);
-  log(`New schedule ${job.id}: ${amountEth} tITL -> ${to} every ${intervalDays}d`);
+  log(`New schedule ${job.id}: ${amountEth} tITL -> ${to} every ${DAY_NAMES[dow]} ${time} UTC`);
   res.json(job);
 });
 
@@ -187,7 +209,7 @@ cron.schedule('* * * * *', async () => {
         const hash = await sendNative(job.to, job.amountEth);
         job.lastTxHash = hash;
         job.runs++;
-        job.nextRun = now + job.intervalDays * 24 * 60 * 60 * 1000;
+        job.nextRun = job.nextRun + 7 * 24 * 60 * 60 * 1000; // same weekday/time, next week
         log(`Executed schedule ${job.id}: ${job.amountEth} tITL -> ${job.to} (${hash})`);
       } catch (e) {
         log(`Schedule ${job.id} failed: ${e.message}`);

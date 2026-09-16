@@ -421,6 +421,9 @@ function initScheduler(){
 initScheduler();
 
 function renderScheduler(agent){
+  var inputStyle = "flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12.5px;";
+  var dayOptions = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+    .map(function(name, i){ return '<option value="' + i + '"' + (i===1?' selected':'') + '>' + name + '</option>'; }).join('');
   schedulerBody.innerHTML =
     '<div class="wallet-row"><span class="label">Agent address</span><span class="addr-chip facet-sm">' + short(agent.address) + '</span></div>' +
     '<div class="wallet-row"><span class="label">Agent balance</span><div class="balance-value">' + agent.balance + '<span>tITL</span></div></div>' +
@@ -428,36 +431,50 @@ function renderScheduler(agent){
     '<div class="eyebrow" style="margin-bottom:8px;display:block;">Set up a recurring transfer</div>' +
     '<div class="key-input-row" style="margin-bottom:8px;"><input id="schedTo" placeholder="Recipient 0x..." /></div>' +
     '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
-      '<input id="schedAmt" placeholder="Amount tITL" style="flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px;color:var(--ink);font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;" />' +
-      '<input id="schedDays" placeholder="Every N days" style="flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px;color:var(--ink);font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;" />' +
+      '<input id="schedAmt" placeholder="Amount tITL" style="' + inputStyle + '" />' +
+      '<select id="schedDay" style="' + inputStyle + '"><option value="" disabled>Day</option>' + dayOptions + '</select>' +
+      '<input id="schedTime" type="time" value="10:00" style="' + inputStyle + '" />' +
     '</div>' +
+    '<div class="faucet-note" style="margin-bottom:10px;">Time is in UTC (server clock), not your local timezone — worth double-checking against your own if timing matters.</div>' +
     '<button class="btn btn-primary facet-sm" id="schedSubmitBtn">Schedule it</button>' +
     '<div id="schedList" style="margin-top:14px;"></div>';
 
   $('schedSubmitBtn').addEventListener('click', function(){
     var to = $('schedTo').value.trim();
     var amountEth = $('schedAmt').value.trim();
-    var intervalDays = $('schedDays').value.trim();
-    if (!to || !amountEth || !intervalDays) return;
-    fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to: to, amountEth: amountEth, intervalDays: intervalDays }) })
-      .then(function(res){ return res.json(); })
-      .then(function(job){
-        log('sys', 'Scheduled on backend: ' + JSON.stringify(job));
+    var dayOfWeek = $('schedDay').value;
+    var time = $('schedTime').value;
+    if (!to || !amountEth || dayOfWeek === '' || !time) return;
+    fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to: to, amountEth: amountEth, dayOfWeek: dayOfWeek, time: time }) })
+      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+      .then(function(r){
+        if(r.status >= 400){ log('err', 'Schedule failed: ' + JSON.stringify(r.data)); return; }
+        log('sys', 'Scheduled on backend: ' + JSON.stringify(r.data));
         loadScheduleList();
       });
   });
   loadScheduleList();
 }
+var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function loadScheduleList(){
   fetch('/api/schedules').then(function(res){ return res.json(); }).then(function(jobs){
     var list = $('schedList');
     if(!list) return;
     list.innerHTML = jobs.length ? jobs.map(function(j){
       return '<div class="wallet-row" style="border-top:1px solid var(--glass-border);padding-top:8px;margin-top:8px;">' +
-        '<span class="label" style="max-width:70%;">' + j.amountEth + ' tITL → ' + short(j.to) + ' / ' + j.intervalDays + 'd — ' + j.runs + ' run(s)</span>' +
+        '<span class="label" style="max-width:55%;">' + j.amountEth + ' tITL → ' + short(j.to) + ' / every ' + DAY_NAMES[j.dayOfWeek] + ' ' + j.time + ' UTC — ' + j.runs + ' run(s)</span>' +
         '<span class="status-pill ' + (j.lastTxHash ? 'ok' : 'pending') + '">' + (j.lastTxHash ? 'ran' : 'pending') + '</span>' +
+        '<button class="btn btn-ghost facet-sm cancel-sched-btn" data-id="' + j.id + '" style="padding:6px 10px;font-size:11px;">Cancel</button>' +
         '</div>';
     }).join('') : '<div class="faucet-note">No schedules yet.</div>';
+    Array.prototype.forEach.call(list.querySelectorAll('.cancel-sched-btn'), function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-id');
+        fetch('/api/schedule/' + id, { method:'DELETE' })
+          .then(function(res){ return res.json(); })
+          .then(function(){ log('sys', 'Cancelled schedule ' + id); loadScheduleList(); });
+      });
+    });
   }).catch(function(e){});
 }
 

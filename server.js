@@ -16,14 +16,24 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/demo', (req, res) => res.sendFile(path.join(__dirname, 'public', 'demo.html')));
 
+const AGENT_KEY_FILE = './agent-key.local.json';
+
 let agentWallet;
 if (process.env.AGENT_PRIVATE_KEY) {
   agentWallet = new ethers.Wallet(process.env.AGENT_PRIVATE_KEY);
+  console.log('Loaded agent wallet from AGENT_PRIVATE_KEY env var:', agentWallet.address);
+} else if (fs.existsSync(AGENT_KEY_FILE)) {
+  const saved = JSON.parse(fs.readFileSync(AGENT_KEY_FILE));
+  agentWallet = new ethers.Wallet(saved.privateKey);
+  console.log('Loaded agent wallet from local file (survives restarts, NOT redeploys):', agentWallet.address);
+  console.log('For permanence across redeploys too, set AGENT_PRIVATE_KEY:', saved.privateKey);
 } else {
   agentWallet = ethers.Wallet.createRandom();
-  console.log('No AGENT_PRIVATE_KEY set — generated a new one for this run.');
+  fs.writeFileSync(AGENT_KEY_FILE, JSON.stringify({ privateKey: agentWallet.privateKey, address: agentWallet.address }));
+  console.log('No AGENT_PRIVATE_KEY set — generated a new one and saved it locally for this container.');
   console.log('Address (fund this via the faucet):', agentWallet.address);
-  console.log('Private key (save to the AGENT_PRIVATE_KEY env var to persist across restarts):', agentWallet.privateKey);
+  console.log('Private key (save to the AGENT_PRIVATE_KEY env var to persist across REdeploys too):', agentWallet.privateKey);
+  console.log('WARNING: this local file survives simple restarts but is wiped on every new deploy — set the env var for full permanence.');
 }
 
 let accessToken = null, refreshToken = null, tokenExpiry = 0;
@@ -132,18 +142,39 @@ async function sendNativeAndConfirm(to, amountEth, maxWaitMs = 25000) {
       if (!confirmed) await sleep(1500);
     }
   }
-  return { hash, confirmed, blockNumber: receipt ? receipt.blockNumber : null };
+  return { hash, confirmed };
 }
 
-app.post('/api/send', async (req, res) => {
-  const { to, amountEth } = req.body;
-  if (!to || !amountEth) return res.status(400).json({ error: 'to and amountEth required' });
+// One-time send: requires a real signature from the requesting address, verified cryptographically
+// before the agent will execute anything. This is what lets "Connect Wallet" (MetaMask or a local key)
+// authorize a transfer without that wallet ever holding the funds itself.
+app.post('/api/send-authorized', async (req, res) => {
+  const { address, message, signature, to, amountEth } = req.body;
+  if (!address || !message || !signature || !to || !amountEth) {
+    return res.status(400).json({ error: 'address, message, signature, to, amountEth required' });
+  }
+  let recovered;
+  try {
+    recovered = ethers.verifyMessage(message, signature);
+  } catch (e) {
+    return res.status(400).json({ error: 'Could not verify signature: ' + e.message });
+  }
+  if (recovered.toLowerCase() !== address.toLowerCase()) {
+    return res.status(401).json({ error: 'Signature does not match the claimed address.' });
+  }
+  const nonceMatch = message.match(/nonce (\d+)/);
+  if (nonceMatch) {
+    const age = Date.now() - Number(nonceMatch[1]);
+    if (age > 5 * 60 * 1000 || age < 0) {
+      return res.status(401).json({ error: 'Authorization expired or invalid — try again.' });
+    }
+  }
   try {
     const result = await sendNativeAndConfirm(to, amountEth);
-    log(`One-time send: ${amountEth} tITL -> ${to} (${result.hash}) confirmed=${result.confirmed}`);
+    log(`Authorized send: ${amountEth} tITL -> ${to} (verified signer ${address}) hash=${result.hash} confirmed=${result.confirmed}`);
     res.json(result);
   } catch (e) {
-    log(`One-time send failed: ${e.message}`);
+    log(`Authorized send failed: ${e.message}`);
     res.status(500).json({ error: e.message });
   }
 });
@@ -209,7 +240,7 @@ cron.schedule('* * * * *', async () => {
         const hash = await sendNative(job.to, job.amountEth);
         job.lastTxHash = hash;
         job.runs++;
-        job.nextRun = job.nextRun + 7 * 24 * 60 * 60 * 1000; // same weekday/time, next week
+        job.nextRun = job.nextRun + 7 * 24 * 60 * 60 * 1000;
         log(`Executed schedule ${job.id}: ${job.amountEth} tITL -> ${job.to} (${hash})`);
       } catch (e) {
         log(`Schedule ${job.id} failed: ${e.message}`);

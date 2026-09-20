@@ -1,7 +1,7 @@
 {
   "name": "aetherflow-app",
   "version": "1.0.0",
-  "description": "Aether Flow — live testnet demo and recurring transfer scheduler",
+  "description": "Aether Flow — live testnet demo (direct wallet sends) and recurring transfer agent",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

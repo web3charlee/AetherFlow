@@ -83,14 +83,16 @@ header{display:flex;justify-content:space-between;align-items:center;gap:20px;fl
 .btn-ghost:hover{border-color:var(--glass-border-hi);color:var(--ink);}
 .btn-block{width:100%;}
 
-.wallet-connect-empty{display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;padding:8px 0 4px;}
-.wallet-connect-empty .mm-icon{font-size:30px;margin-bottom:2px;}
-.wallet-connect-empty p{color:var(--ink-faint);font-size:12px;margin:2px 0 10px;line-height:1.5;}
-.no-wallet-link{font-size:12px;color:var(--ink-faint);text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;}
-.no-wallet-link:hover{color:var(--violet-soft);}
+.wallet-connect-empty{display:flex;flex-direction:column;gap:10px;padding:4px 0;}
+.wallet-connect-empty p{color:var(--ink-faint);font-size:12px;margin:2px 0 4px;line-height:1.5;}
+.divider-or{display:flex;align-items:center;gap:10px;color:var(--ink-faint);font-size:11px;font-family:'IBM Plex Mono',monospace;}
+.divider-or::before,.divider-or::after{content:'';flex:1;height:1px;background:var(--glass-border);}
+.key-input-row{display:flex;gap:8px;}
+.key-input-row input{flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px 13px;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12.5px;outline:none;}
+.key-input-row input:focus{border-color:var(--glass-border-hi);}
 
 .wallet-active{display:none;flex-direction:column;gap:14px;}
-.wallet-row{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.wallet-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
 .wallet-row .label{font-size:11.5px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.05em;}
 .addr-chip{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--violet-soft);background:#150e28;border:1px solid var(--glass-border);padding:7px 11px;cursor:pointer;}
 .balance-value{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:700;}
@@ -101,16 +103,6 @@ header{display:flex;justify-content:space-between;align-items:center;gap:20px;fl
 .status-pill.err{background:#2c1410;color:var(--red);border:1px solid #6b2a20;}
 .faucet-note{font-size:11.5px;color:var(--ink-faint);line-height:1.55;}
 .faucet-note a{color:var(--violet-soft);}
-
-.agent-key-toggle{margin-top:6px;font-size:12px;color:var(--ink-faint);background:none;border:none;text-decoration:underline;cursor:pointer;padding:0;}
-.agent-key-toggle:hover{color:var(--violet-soft);}
-.agent-key-panel{display:none;margin-top:12px;padding-top:14px;border-top:1px solid var(--glass-border);gap:10px;flex-direction:column;}
-.agent-key-panel .warn{font-size:11px;color:var(--ink-faint);line-height:1.5;}
-.key-input-row{display:flex;gap:8px;}
-.key-input-row input{flex:1;background:#100a1e;border:1px solid var(--glass-border);padding:11px 13px;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12.5px;outline:none;}
-.key-input-row input:focus{border-color:var(--glass-border-hi);}
-.divider-or{display:flex;align-items:center;gap:10px;color:var(--ink-faint);font-size:11px;font-family:'IBM Plex Mono',monospace;}
-.divider-or::before,.divider-or::after{content:'';flex:1;height:1px;background:var(--glass-border);}
 
 .chat-body{padding:18px 20px;display:flex;flex-direction:column;gap:11px;min-height:220px;}
 .presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
@@ -154,33 +146,37 @@ footer a{color:var(--ink-dim);}
 
   <div class="hero">
     <h1>A live agent, wired to real testnet infrastructure.</h1>
-    <p>This runs against Interlink's actual gateway — <b>real wallet connect, real balance reads, real signed transactions</b> on ITL Testnet.</p>
+    <p>This runs against Interlink's actual gateway — <b>real wallet, real balance reads, real signed transactions</b> on ITL Testnet. One-time sends go straight from your own wallet below.</p>
   </div>
 
   <div class="grid">
 
     <div class="panel facet">
-      <div class="panel-head"><h2>Wallet</h2><span class="eyebrow" id="walletEyebrow">Not connected</span></div>
+      <div class="panel-head"><h2>Your wallet</h2><span class="eyebrow" id="walletEyebrow">Not connected</span></div>
       <div class="wallet-body">
         <div class="wallet-connect-empty" id="walletEmpty">
-          <div class="mm-icon">🦊</div>
-          <button class="btn btn-primary btn-block facet-sm" id="connectBtn">Connect Wallet</button>
-          <p>Connects via your browser wallet — proves it's really you, shows your balance. No key ever leaves your browser.</p>
-          <button class="no-wallet-link" id="noWalletLink">Don't have a wallet? Generate a demo one instead</button>
+          <button class="btn btn-primary btn-block facet-sm" id="connectMMBtn">Connect Wallet</button>
+          <p>Connects your real MetaMask address for identity and live balance. Sends still execute through the agent below — MetaMask signs a confirmation, since no browser wallet can sign a raw transaction for Interlink's gateway.</p>
+          <div class="divider-or">no MetaMask?</div>
+          <div class="key-input-row">
+            <input id="importKeyInput" type="password" placeholder="Paste a testnet private key instead" />
+            <button class="btn btn-ghost facet-sm" id="importKeyBtn">Import</button>
+          </div>
         </div>
 
         <div class="wallet-active" id="walletActive">
           <div class="wallet-row"><span class="label">Address</span><span class="addr-chip facet-sm" id="addrChip" title="Click to copy">—</span></div>
           <div class="wallet-row"><span class="label">Balance</span><div class="balance-value" id="balanceValue">—<span>tITL</span></div></div>
           <div class="wallet-row"><span class="label">Auth</span><span class="status-pill pending" id="authPill">Not authenticated</span></div>
-          <div class="faucet-note">Fund this address at the <a href="https://faucet.test-net.interlinklabs.ai/" target="_blank">Interlink testnet faucet</a> (claim via the InterLink app first), then hit Refresh.</div>
+          <div class="faucet-note">This is your real connected address — its balance is read-only here. To actually send, fund the agent address below; MetaMask will ask you to sign a confirmation for each send.</div>
           <button class="btn btn-ghost facet-sm" id="refreshBalanceBtn">Refresh balance</button>
+          <button class="no-wallet-link" id="disconnectBtn" style="margin-top:8px;font-size:11px;color:var(--ink-faint);background:none;border:none;text-decoration:underline;cursor:pointer;">Disconnect</button>
         </div>
       </div>
     </div>
 
     <div class="panel facet">
-      <div class="panel-head"><h2>Execution agent</h2><span class="eyebrow">Signs & sends on your behalf</span></div>
+      <div class="panel-head"><h2>Recurring agent</h2><span class="eyebrow">Separate wallet — runs unattended</span></div>
       <div class="wallet-body">
         <div id="schedulerBody"><div class="faucet-note">Loading agent wallet from the server…</div></div>
       </div>
@@ -193,7 +189,7 @@ footer a{color:var(--ink-dim);}
           <div class="preset" data-cmd="Check my balance">Check balance</div>
           <div class="preset" data-cmd="Send 0.1 tITL to 0x0000000000000000000000000000000000000000">One-time transfer</div>
         </div>
-        <div class="bubble-ai">Connect a wallet on the left to sign in. Then fund the <b>agent</b> address in the panel to the right (that's what actually executes) and tell me what to do — e.g. <i>"send 0.1 tITL to 0x..."</i>.</div>
+        <div class="bubble-ai">Generate or import a wallet on the left, fund it from the faucet, then tell me what to do — e.g. <i>"send 0.1 tITL to 0x..."</i>. This sends directly from your own wallet.</div>
         <div class="composer">
           <input id="cmdInput" type="text" placeholder="e.g. Send 0.1 tITL to 0x..." />
           <button class="btn btn-primary facet-sm" id="sendBtn" disabled>Run</button>
@@ -223,8 +219,6 @@ var RPC_BASE = "https://evm-rpc.test-net.interlinklabs.ai/v1";
 var CHAIN_ID = 19042026n;
 
 var wallet = null;
-var displayAddress = null;
-var mmProvider = null;
 var accessToken = null, refreshToken = null, tokenExpiry = 0;
 
 function $(id){ return document.getElementById(id); }
@@ -261,58 +255,86 @@ function bubbleAI(html){
 }
 function short(a){ return a.slice(0,8)+'…'+a.slice(-6); }
 
-// ---------- Connect Wallet (MetaMask) ----------
-$('connectBtn').addEventListener('click', function(){
+// ---------- wallet: real MetaMask connect (primary), local key (fallback) ----------
+var WALLET_STORAGE_KEY = 'aetherflow_wallet_pk';
+var mmProvider = null;   // set if connected via MetaMask
+var walletAddress = null; // the address in play, whichever method connected it
+
+$('connectMMBtn').addEventListener('click', function(){
   if(!window.ethereum){
-    bubbleAI('No browser wallet detected. Click "Generate a demo one instead" below, or install MetaMask and reload.');
+    bubbleAI('No browser wallet found. Install MetaMask, or use the "no MetaMask?" option below to paste a testnet key instead.');
     return;
   }
   window.ethereum.request({ method:'eth_requestAccounts' }).then(function(accounts){
     mmProvider = window.ethereum;
-    displayAddress = accounts[0];
-    log('sys', 'Connected wallet: ' + displayAddress);
+    wallet = null;
+    walletAddress = accounts[0];
+    log('sys', 'Connected MetaMask: ' + walletAddress);
     activateWallet();
   }).catch(function(e){
     log('err', 'Wallet connect rejected: ' + e.message);
   });
 });
-$('noWalletLink').addEventListener('click', function(){
-  wallet = ethers.Wallet.createRandom();
-  displayAddress = wallet.address;
-  mmProvider = null;
-  log('sys', 'Generated demo wallet: ' + wallet.address);
-  bubbleAI('New wallet generated: <b>' + wallet.address + '</b>. Save this — fund it via the faucet, then refresh your balance.<br><br><b>Private key (shown once):</b><br><code style="font-size:11px">' + wallet.privateKey + '</code>');
-  activateWallet();
+$('importKeyBtn').addEventListener('click', function(){
+  var key = $('importKeyInput').value.trim();
+  if(!key) return;
+  try{
+    wallet = new ethers.Wallet(key.indexOf('0x')===0 ? key : '0x'+key);
+    mmProvider = null;
+    walletAddress = wallet.address;
+    localStorage.setItem(WALLET_STORAGE_KEY, wallet.privateKey);
+    log('sys', 'Imported local key: ' + wallet.address);
+    activateWallet();
+  }catch(e){ log('err', 'Invalid private key: ' + e.message); }
+});
+$('refreshBalanceBtn').addEventListener('click', function(){ refreshBalance(); });
+$('disconnectBtn').addEventListener('click', function(){
+  localStorage.removeItem(WALLET_STORAGE_KEY);
+  wallet = null; mmProvider = null; walletAddress = null;
+  accessToken = null; tokenExpiry = 0;
+  walletActive.style.display = 'none';
+  walletEmpty.style.display = 'flex';
+  walletEyebrow.textContent = 'Not connected';
+  sendBtn.disabled = true;
+  log('sys', 'Disconnected.');
+});
+addrChip.addEventListener('click', function(){
+  navigator.clipboard.writeText(walletAddress);
+  addrChip.textContent = 'Copied!';
+  setTimeout(function(){ addrChip.textContent = short(walletAddress); }, 900);
 });
 
-$('refreshBalanceBtn').addEventListener('click', function(){ refreshBalance(); });
-addrChip.addEventListener('click', function(){
-  navigator.clipboard.writeText(displayAddress);
-  addrChip.textContent = 'Copied!';
-  setTimeout(function(){ addrChip.textContent = short(displayAddress); }, 900);
-});
+function signAuthMessage(message){
+  if(mmProvider) return mmProvider.request({ method:'personal_sign', params:[message, walletAddress] });
+  return wallet.signMessage(message);
+}
 
 function activateWallet(){
   walletEmpty.style.display = 'none';
   walletActive.style.display = 'flex';
   walletEyebrow.textContent = 'Connected';
-  addrChip.textContent = short(displayAddress);
+  addrChip.textContent = short(walletAddress);
   sendBtn.disabled = false;
   authenticate().then(function(){ refreshBalance(); }).catch(function(){});
 }
 
-function signMessage(message){
-  if(mmProvider){
-    return mmProvider.request({ method:'personal_sign', params:[message, displayAddress] });
-  }
-  return wallet.signMessage(message);
-}
+// Auto-reconnect a local key on page load (MetaMask requires a fresh click each time, browsers don't allow silent auto-connect).
+(function autoReconnect(){
+  var saved = localStorage.getItem(WALLET_STORAGE_KEY);
+  if(!saved) return;
+  try{
+    wallet = new ethers.Wallet(saved);
+    walletAddress = wallet.address;
+    log('sys', 'Auto-reconnected local key from this browser: ' + wallet.address);
+    activateWallet();
+  }catch(e){ localStorage.removeItem(WALLET_STORAGE_KEY); }
+})();
 
 // ---------- auth flow ----------
 function authenticate(){
   authPill.className = 'status-pill pending';
   authPill.textContent = 'Authenticating…';
-  var challengeReq = { walletAddress: displayAddress, chainId: "19042026" };
+  var challengeReq = { walletAddress: walletAddress, chainId: "19042026" };
   log('req', 'POST /auth/challenge  ' + JSON.stringify(challengeReq));
   return fetch(RPC_BASE + '/auth/challenge', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(challengeReq) })
     .then(function(cRes){
@@ -324,10 +346,10 @@ function authenticate(){
         var message = (cData.result && cData.result.messageToSign) || cData.message || cData.challenge || (cData.data && cData.data.message);
         var challengeId = cData.result && cData.result.challengeId;
         if(!message) throw new Error('No challenge message found in response — see console for the raw payload.');
-        return signMessage(message).then(function(signature){
-          log('sys', 'Signed challenge (' + (mmProvider ? 'via connected wallet' : 'via local signing key') + ').');
-          var verifyReq = { walletAddress: displayAddress, chainId: "19042026", challengeId: challengeId, message: message, signature: signature };
-          log('req', 'POST /auth/verify  {walletAddress, chainId, message, signature}');
+        return signAuthMessage(message).then(function(signature){
+          log('sys', 'Signed challenge (' + (mmProvider ? 'via MetaMask' : 'via local key') + ').');
+          var verifyReq = { walletAddress: walletAddress, chainId: "19042026", challengeId: challengeId, message: message, signature: signature };
+          log('req', 'POST /auth/verify  {walletAddress, chainId, challengeId, message, signature}');
           return fetch(RPC_BASE + '/auth/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(verifyReq) });
         });
       });
@@ -385,31 +407,37 @@ function rpcCall(method, params, _authRetried){
 }
 
 function refreshBalance(){
-  return rpcCall('eth_getBalance', [displayAddress, 'latest']).then(function(hex){
+  return rpcCall('eth_getBalance', [walletAddress, 'latest']).then(function(hex){
     balanceValue.innerHTML = ethers.formatEther(BigInt(hex)) + '<span>tITL</span>';
   }).catch(function(e){
     balanceValue.innerHTML = 'error<span>see console</span>';
   });
 }
 
+// ---------- one-time transfer: MetaMask (or local key) signs a confirmation, the agent executes it ----------
 function sendNativeTransfer(to, amountEth){
-  bubbleAI('Sending <b>' + amountEth + ' tITL</b> → <b>' + short(to) + '</b> via the Aether Flow agent…');
-  return fetch('/api/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to: to, amountEth: amountEth }) })
-    .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
-    .then(function(r){
-      log(r.status >= 400 ? 'err' : 'res', 'POST /api/send ← ' + JSON.stringify(r.data));
-      if(r.status >= 400) throw new Error(r.data.error || 'Send failed');
-      if(!r.data.confirmed){
-        bubbleAI('Submitted — tx hash <b>' + short(r.data.hash) + '</b>. Still confirming, check the explorer if it takes a bit longer.');
-      } else {
-        bubbleAI('Confirmed ✓ — <b>' + amountEth + ' tITL</b> sent to <b>' + short(to) + '</b>. Tx: <code style="font-size:11px">' + r.data.hash + '</code>');
-      }
-      refreshBalance();
-      loadScheduleList();
+  var authMsg = 'Aether Flow: I authorize sending ' + amountEth + ' tITL to ' + to + ' (from ' + walletAddress + ', nonce ' + Date.now() + ')';
+  bubbleAI('Sending <b>' + amountEth + ' tITL</b> → <b>' + short(to) + '</b> — confirm the signature request in your wallet…');
+  return signAuthMessage(authMsg).then(function(signature){
+    log('sys', 'Signed send authorization (' + (mmProvider ? 'via MetaMask' : 'via local key') + ').');
+    return fetch('/api/send-authorized', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ address: walletAddress, message: authMsg, signature: signature, to: to, amountEth: amountEth })
     });
+  })
+  .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+  .then(function(r){
+    log(r.status >= 400 ? 'err' : 'res', 'POST /api/send-authorized ← ' + JSON.stringify(r.data));
+    if(r.status >= 400) throw new Error(r.data.error || 'Send failed');
+    if(!r.data.confirmed){
+      bubbleAI('Submitted — tx hash <b>' + short(r.data.hash) + '</b>. Still confirming, check the explorer if it takes a bit longer.');
+    } else {
+      bubbleAI('Confirmed ✓ — you authorized <b>' + amountEth + ' tITL</b> to <b>' + short(to) + '</b>, agent executed it. Tx: <code style="font-size:11px">' + r.data.hash + '</code>');
+    }
+  });
 }
 
-// ---------- scheduler ----------
+// ---------- recurring agent (separate, always-on, server-side) ----------
 var schedulerBody = $('schedulerBody');
 function initScheduler(){
   fetch('/api/agent').then(function(res){ return res.json(); }).then(function(data){
@@ -435,11 +463,11 @@ function renderScheduler(agent){
   var dayOptions = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
     .map(function(name, i){ return '<option value="' + i + '"' + (i===1?' selected':'') + '>' + name + '</option>'; }).join('');
   schedulerBody.innerHTML =
-    '<div class="wallet-row"><span class="label">Agent address</span><span class="addr-chip facet-sm">' + short(agent.address) + '</span></div>' +
+    '<div class="faucet-note" style="margin-bottom:12px;">This is a separate, dedicated wallet — the only way for "every Monday" to actually fire is a key that stays running on a server, since your browser won\'t be open then. Fund it once and it handles every recurring transfer.</div>' +
+    '<div class="wallet-row"><span class="label">Agent address</span><span class="addr-chip facet-sm" id="agentAddrChip" title="Click to copy" style="cursor:pointer;">' + short(agent.address) + '</span></div>' +
     '<div class="wallet-row"><span class="label">Agent balance</span><div class="balance-value" id="agentBalanceValue">' + agent.balance + '<span>tITL</span></div></div>' +
     '<button class="btn btn-ghost facet-sm" id="refreshAgentBtn" style="margin-bottom:4px;">Refresh agent balance</button>' +
-    '<div class="faucet-note" style="margin:8px 0 14px;">Fund this address via the faucet — it signs and sends every transfer you request, one-time or recurring, without you ever pasting a key.</div>' +
-    '<div class="eyebrow" style="margin-bottom:8px;display:block;">Set up a recurring transfer</div>' +
+    '<div class="eyebrow" style="margin:12px 0 8px;display:block;">Set up a recurring transfer</div>' +
     '<div class="key-input-row" style="margin-bottom:8px;"><input id="schedTo" placeholder="Recipient 0x..." /></div>' +
     '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
       '<input id="schedAmt" placeholder="Amount tITL" style="' + inputStyle + '" />' +
@@ -451,6 +479,12 @@ function renderScheduler(agent){
     '<div id="schedList" style="margin-top:14px;"></div>';
 
   $('refreshAgentBtn').addEventListener('click', function(){ refreshAgentBalance(); });
+  $('agentAddrChip').addEventListener('click', function(){
+    navigator.clipboard.writeText(agent.address);
+    var el = $('agentAddrChip');
+    el.textContent = 'Copied!';
+    setTimeout(function(){ el.textContent = short(agent.address); }, 900);
+  });
 
   $('schedSubmitBtn').addEventListener('click', function(){
     var to = $('schedTo').value.trim();
@@ -506,7 +540,7 @@ function loadScheduleList(){
 // ---------- NL command parsing ----------
 function parseIntent(text){
   if(/balance/i.test(text)) return {type:'balance'};
-  if(/every|weekly|recurring|monday/i.test(text)) return {type:'recurring'};
+  if(/every|weekly|recurring|monday|tuesday|wednesday|thursday|friday|saturday|sunday/i.test(text)) return {type:'recurring'};
   var amt = text.match(/(\d+(\.\d+)?)\s*tITL/i);
   var to = text.match(/0x[a-fA-F0-9]{40}/);
   if(amt && to) return {type:'transfer', amount:amt[1], to:to[0]};
@@ -514,7 +548,7 @@ function parseIntent(text){
 }
 function run(){
   var text = cmdInput.value.trim();
-  if(!text || !displayAddress) return;
+  if(!text || !walletAddress) return;
   bubbleUser(text);
   cmdInput.value = '';
   var intent = parseIntent(text);
@@ -523,7 +557,7 @@ function run(){
       bubbleAI('Current balance: <b>' + balanceValue.textContent + '</b>');
     });
   } else if(intent.type === 'recurring'){
-    bubbleAI('Recurring sends run on the "Recurring transfers" panel, not this chat — it\'s already wired to the backend.');
+    bubbleAI('Recurring sends run on the "Recurring agent" panel, not this chat — it\'s a separate always-on wallet, since this can\'t keep running once you close the tab.');
   } else if(intent.type === 'transfer'){
     sendNativeTransfer(intent.to, intent.amount).catch(function(e){
       bubbleAI('Transaction failed: <b>' + e.message + '</b> — see console for the raw RPC error.');
@@ -535,7 +569,7 @@ function run(){
 sendBtn.addEventListener('click', run);
 cmdInput.addEventListener('keydown', function(e){ if(e.key==='Enter') run(); });
 Array.prototype.forEach.call(document.querySelectorAll('.preset'), function(p){
-  p.addEventListener('click', function(){ cmdInput.value = p.dataset.cmd; if(displayAddress) run(); });
+  p.addEventListener('click', function(){ cmdInput.value = p.dataset.cmd; if(walletAddress) run(); });
 });
 
 })();
